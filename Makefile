@@ -7,4 +7,5 @@ clean:
 	rm $(TARGET)
 
 install:
-	install $(TARGET) $(PREFIX)/bin/
+	install -d $(PREFIX)/bin/ 
+	install -D $(TARGET) $(PREFIX)/bin/
