@@ -1,7 +1,7 @@
 TARGET = login-client
 
 all:
-	$(CC) $(CFLAGS) -o $(TARGET) thttp.c main.c tinyhttp/chunk.c tinyhttp/header.c tinyhttp/http.c
+	$(CC) $(CFLAGS) -o $(TARGET) thttp.c main.c tinyhttp/chunk.c tinyhttp/header.c tinyhttp/http.c jsmn/jsmn.c
 
 clean:
 	rm $(TARGET)
