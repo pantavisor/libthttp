@@ -29,9 +29,9 @@ typedef void* tcloudc_response_ptr;
 // Special conditions are treated like the following:
 //  - EOF:  data == 0 && data_len == 0
 //  - ERROR" data == 0 && data_len == ERROR_CODE
-typedef void (*tcloudc_client_blob_cb) (void *user_data,
-					unsigned char* data,
-					size_t data_len);
+typedef void (*tcloudc_client_cb) (void *user_data,
+				unsigned char* data,
+				size_t data_len);
 
 
 tcloudc_client_ptr
@@ -73,9 +73,7 @@ tcloudc_request_ptr
 tcloudc_make_blob_request (tcloudc_method_enum method,
 			char *endpoint_path,
 			char **queries,
-			char *json_body,
-			tcloudc_client_blob_cb callback,
-			void* user_data);
+			char *json_body);
 
 
 // execute the request.
@@ -87,5 +85,10 @@ tcloudc_make_blob_request (tcloudc_method_enum method,
 //   -- default the client uses.
 tcloudc_response_ptr
 tcloud_client_do_request (tcloudc_client_ptr *client,
-			tcloudc_request_ptr);
+			tcloudc_request_ptr,
+			tcloudc_client_cb callback,
+			void* user_data);
 
+tcloudc_response_ptr
+tcloud_client_do_json_request (tcloudc_client_ptr *client,
+			tcloudc_request_ptr);

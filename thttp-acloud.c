@@ -25,9 +25,6 @@ struct tcloudc_request {
 	char *endpoint_path;
 	char **queries;
 	char *json_body;
-
-	tcloudc_client_blob_cb callback;
-	void* callback_user_data;
 };
 
 struct tcloudc_response {
@@ -73,6 +70,15 @@ tcloudc_client_free (tcloudc_client_ptr ptr)
 void
 tcloudc_request_free (tcloudc_request_ptr ptr)
 {
+	struct tcloudc_request* req = (struct tcloudc_request*) ptr;
+	char **queries_i = req->queries;
+
+	while(queries_i && *queries_i)
+		free(queries_i++);
+
+	free(req->queries);
+	free(req->endpoint_path);
+	free(req->json_body);
 }
 
 void
@@ -90,10 +96,10 @@ tcloudc_auth_status (tcloudc_client_ptr ptr)
 // make a json request; uses Encoding application/json
 // and Accept-Endcoding application/json accordingly
 tcloudc_request_ptr
-tcloudc_make_json_request (tcloudc_method_enum method,
-			char *endpoint_path,
-			char **queries,
-			char *json_body)
+tcloudc_make_request (tcloudc_method_enum method,
+		char *endpoint_path,
+		char **queries,
+		char *json_body)
 {
 	// XXX: implement parameter precondition checks
 	struct tcloudc_request* r =
@@ -103,14 +109,12 @@ tcloudc_make_json_request (tcloudc_method_enum method,
 	int queries_len = 0;
 	char **queries_i = queries;
 
-	r->type = tcloudc_rtype_JSON;
-
 	r->queries = calloc(sizeof(char*), queries_size);
 	r->queries[queries_len] = 0;
 
 	r->method = method;
 	r->endpoint_path = strdup(endpoint_path);
-	r->json_body=json_body;
+	r->json_body= strdup(json_body);
 
 	// XXX: make a ptrvdup
 	while (queries && *queries) {
@@ -124,27 +128,6 @@ tcloudc_make_json_request (tcloudc_method_enum method,
 	return r;
 }
 
-// make a blob request expecting a blob back. this request
-// takes a callback function that will be called to pump
-// the blob data stream
-tcloudc_request_ptr
-tcloudc_make_blob_request (tcloudc_method_enum method,
-			char *endpoint_path,
-			char **queries,
-			char *json_body,
-			tcloudc_client_blob_cb callback,
-			void* user_data)
-{
-	// XXX: implement parameter precondition checks
-	struct tcloudc_request* r =
-		tcloudc_make_json_request (method, endpoint_path, queries, json_body);
-
-	r->type = tcloudc_rtype_BLOB;
-	r-> callback = callback;
-	r-> callback_user_data = user_data;
-	return r;
-}
-
 // execute the request.
 // XXX: later or think about:
 //   -- this will autoperform redirects
@@ -154,11 +137,19 @@ tcloudc_make_blob_request (tcloudc_method_enum method,
 //   -- default the client uses.
 tcloudc_response_ptr
 tcloud_client_do_request (tcloudc_client_ptr *client,
-			tcloudc_request_ptr request)
+			tcloudc_request_ptr request,
+			tcloudc_client_cb callback,
+			void* user_data)
 {
 	return NULL;
 }
 
+tcloudc_response_ptr
+tcloud_client_do__json_request (tcloudc_client_ptr *client,
+				tcloudc_request_ptr request)
+{
+	return NULL;
+}
 
 // callback for blob messages. this gets called when
 // new data is available with data pointing to the
@@ -167,6 +158,6 @@ tcloud_client_do_request (tcloudc_client_ptr *client,
 // Special conditions are treated like the following:
 //  - EOF:  data == 0 && data_len == 0
 //  - ERROR" data == 0 && data_len == ERROR_CODE
-typedef void (*tcloudc_client_blob_cb) (void *user_data,
-					unsigned char* data,
-					size_t data_len);
+typedef void (*tcloudc_client_cb) (void *user_data,
+				unsigned char* data,
+				size_t data_len);
