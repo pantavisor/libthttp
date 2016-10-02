@@ -1,5 +1,7 @@
 TARGETS = thttp-example1 trest-example1
 
+CFLAGS := -g
+
 all: $(TARGETS)
 
 LIBTHTTP_PREREQ := \
