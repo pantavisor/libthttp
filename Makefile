@@ -30,3 +30,5 @@ install:
 	install -d $(DESTDIR)$(PREFIX)/bin/ 
 	install -D $(TARGETS) $(DESTDIR)$(PREFIX)/bin/
 
+uninstall:
+	rm -f $(foreach t,$(TARGETS),$(DESTDIR)$(PREFIX)/bin/$(t))
