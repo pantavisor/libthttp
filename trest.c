@@ -102,7 +102,8 @@ trest_response_free (trest_response_ptr ptr)
 trest_auth_status_enum
 trest_auth_status (trest_ptr ptr)
 {
-	return TREST_AUTH_STATUS_UNKNOWN;
+	struct trest *self = (struct trest*) ptr;
+	return self->status;
 }
 
 // update auth tokens if possible. usually tries refresh_token
