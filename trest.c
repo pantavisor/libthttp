@@ -112,7 +112,12 @@ trest_auth_status (trest_ptr ptr)
 // initial auth token, but this behaviour depends on the
 // credential type and backend implementation.
 trest_auth_status_enum
-trest_update_auth (trest_ptr ptr);
+trest_update_auth (trest_ptr ptr)
+{
+
+	struct trest *self = (struct trest*) ptr;
+	return TREST_AUTH_STATUS_UNKNOWN;
+}
 
 // make a json request; uses Encoding application/json
 // and Accept-Endcoding application/json accordingly
