@@ -4,12 +4,12 @@
 
 #include "trest.h"
 
-enum tcloudc_rtype {
-	tcloudc_rtype_JSON =1,
-	tcloudc_rtype_BLOB,
+enum trest_rtype {
+	trest_rtype_JSON =1,
+	trest_rtype_BLOB,
 };
 
-struct tcloudc_client {
+struct trest {
 	char *host;
 	int port;
 
@@ -18,26 +18,26 @@ struct tcloudc_client {
 	char *refresh_token;
 };
 
-struct tcloudc_request {
-	enum tcloudc_rtype type;
-	tcloudc_method_enum method;
+struct trest_request {
+	enum trest_rtype type;
+	trest_method_enum method;
 
 	char *endpoint_path;
 	char **queries;
 	char *json_body;
 };
 
-struct tcloudc_response {
+struct trest_response {
 };
 
 
-tcloudc_client_ptr
-tcloudc_client_new_from_userpass(const char* host, int port,
+trest_ptr
+trest_new_from_userpass(const char* host, int port,
 				const char *user,
 				const char *pass)
 {
-	struct tcloudc_client* client =
-		calloc (sizeof(struct tcloudc_client*), 1);
+	struct trest* client =
+		calloc (sizeof(struct trest*), 1);
 
 	client->host = strdup(host);
 	client->port = port;
@@ -47,13 +47,13 @@ tcloudc_client_new_from_userpass(const char* host, int port,
 	*client->credentials++ = strdup(pass);
 	*client->credentials = (char*) 0;
 
-	return (tcloudc_client_ptr*) client;
+	return (trest_ptr*) client;
 }
 
 void
-tcloudc_client_free (tcloudc_client_ptr ptr)
+trest_free (trest_ptr ptr)
 {
-	struct tcloudc_client* client = (struct tcloudc_client*) ptr;
+	struct trest* client = (struct trest*) ptr;
 	char **cptr = client->credentials;
 
 	while(cptr && *cptr) {
@@ -68,9 +68,9 @@ tcloudc_client_free (tcloudc_client_ptr ptr)
 }
 
 void
-tcloudc_request_free (tcloudc_request_ptr ptr)
+trest_request_free (trest_request_ptr ptr)
 {
-	struct tcloudc_request* req = (struct tcloudc_request*) ptr;
+	struct trest_request* req = (struct trest_request*) ptr;
 	char **queries_i = req->queries;
 
 	while(queries_i && *queries_i)
@@ -82,28 +82,28 @@ tcloudc_request_free (tcloudc_request_ptr ptr)
 }
 
 void
-tcloudc_response_free (tcloudc_response_ptr ptr)
+trest_response_free (trest_response_ptr ptr)
 {
 }
 
 // check auth status if you are just interested in this
-tcloudc_auth_status_enum
-tcloudc_auth_status (tcloudc_client_ptr ptr)
+trest_auth_status_enum
+trest_auth_status (trest_ptr ptr)
 {
-	return TCLOUDC_AUTH_STATUS_UNKNOWN;
+	return TREST_AUTH_STATUS_UNKNOWN;
 }
 
 // make a json request; uses Encoding application/json
 // and Accept-Endcoding application/json accordingly
-tcloudc_request_ptr
-tcloudc_make_request (tcloudc_method_enum method,
+trest_request_ptr
+trest_make_request (trest_method_enum method,
 		char *endpoint_path,
 		char **queries,
 		char *json_body)
 {
 	// XXX: implement parameter precondition checks
-	struct tcloudc_request* r =
-		malloc (sizeof(struct tcloudc_request*));
+	struct trest_request* r =
+		malloc (sizeof(struct trest_request*));
 
 	size_t queries_size = 1;
 	int queries_len = 0;
@@ -135,18 +135,18 @@ tcloudc_make_request (tcloudc_method_enum method,
 //   -- endpoint prefix is determined through a setting that
 //   -- can be tweaked against the _request objects. By
 //   -- default the client uses.
-tcloudc_response_ptr
-tcloud_client_do_request (tcloudc_client_ptr *client,
-			tcloudc_request_ptr request,
-			tcloudc_client_cb callback,
+trest_response_ptr
+tcloud_client_do_request (trest_ptr *client,
+			trest_request_ptr request,
+			trest_cb callback,
 			void* user_data)
 {
 	return NULL;
 }
 
-tcloudc_response_ptr
-tcloud_client_do__json_request (tcloudc_client_ptr *client,
-				tcloudc_request_ptr request)
+trest_response_ptr
+tcloud_client_do__json_request (trest_ptr *client,
+				trest_request_ptr request)
 {
 	return NULL;
 }
@@ -158,6 +158,6 @@ tcloud_client_do__json_request (tcloudc_client_ptr *client,
 // Special conditions are treated like the following:
 //  - EOF:  data == 0 && data_len == 0
 //  - ERROR" data == 0 && data_len == ERROR_CODE
-typedef void (*tcloudc_client_cb) (void *user_data,
-				unsigned char* data,
-				size_t data_len);
+typedef void (*trest_cb) (void *user_data,
+			unsigned char* data,
+			size_t data_len);
