@@ -163,7 +163,7 @@ trest_make_request (trest_method_enum method,
 //   -- can be tweaked against the _request objects. By
 //   -- default the client uses.
 trest_response_ptr
-tcloud_client_do_request (trest_ptr client,
+trest_do_request (trest_ptr client,
 			trest_request_ptr request,
 			trest_cb callback,
 			void* user_data)
@@ -172,7 +172,7 @@ tcloud_client_do_request (trest_ptr client,
 }
 
 trest_response_ptr
-tcloud_client_do__json_request (trest_ptr client,
+trest_do__json_request (trest_ptr client,
 				trest_request_ptr request)
 {
 	return NULL;

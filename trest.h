@@ -86,11 +86,11 @@ trest_make_blob_request (trest_method_enum method,
 //   -- can be tweaked against the _request objects. By
 //   -- default the client uses.
 trest_response_ptr
-tcloud_client_do_request (trest_ptr client,
+trest_do_request (trest_ptr client,
 			trest_request_ptr ptr,
 			trest_cb callback,
 			void* user_data);
 
 trest_response_ptr
-tcloud_client_do_json_request (trest_ptr *client,
+trest_do_json_request (trest_ptr *client,
 			trest_request_ptr);
