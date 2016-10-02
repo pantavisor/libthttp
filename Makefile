@@ -27,6 +27,6 @@ clean:
 	rm $(TARGETS)
 
 install:
-	install -d $(PREFIX)/bin/ 
-	install -D $(TARGET) $(PREFIX)/bin/
+	install -d $(DESTDIR)$(PREFIX)/bin/ 
+	install -D $(TARGET) $(DESTDIR)$(PREFIX)/bin/
 
