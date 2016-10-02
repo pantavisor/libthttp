@@ -20,8 +20,8 @@ int main (char **argv, int argc) {
 	}
 	printf(" OK\n");
 
-	printf("Testing trest auth_status ...");
 
+	printf("Testing trest auth_status ...");
 	trest_auth_status_enum status =
 		trest_auth_status(client);
 
@@ -31,6 +31,24 @@ int main (char **argv, int argc) {
 	}
 	printf(" OK\n");
 
+
+	printf("make json_request for /api/auth/login ...");
+	trest_request_ptr req = trest_make_request (TREST_METHOD_POST,
+						"/api/auth/login",
+						0,
+						"{ username: \""
+						DEFAULT_USER
+						"\", password: \""
+						DEFAULT_PASS
+						"\" }");
+	if (!req) {
+		printf (" ERROR (!req)\n");
+		return 3;
+	}
+	printf(" OK\n");
+
+
+	trest_request_free(req);
 	trest_free (client);
 
 	return 0;
