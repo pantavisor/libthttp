@@ -20,6 +20,17 @@ int main (char **argv, int argc) {
 	}
 	printf(" OK\n");
 
+	printf("Testing trest auth_status ...");
+
+	trest_auth_status_enum status =
+		trest_auth_status(client);
+
+	if (status != TREST_AUTH_STATUS_NOTAUTH) {
+		printf (" ERROR (status != TREST_AUTH_STATUS_NOTAUTH)\n");
+		return 2;
+	}
+	printf(" OK\n");
+
 	trest_free (client);
 
 	return 0;
