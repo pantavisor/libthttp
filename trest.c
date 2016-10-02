@@ -93,6 +93,14 @@ trest_auth_status (trest_ptr ptr)
 	return TREST_AUTH_STATUS_UNKNOWN;
 }
 
+// update auth tokens if possible. usually tries refresh_token
+// against the login endpoint and then other credentials
+// if available. usually needs to be called once to get
+// initial auth token, but this behaviour depends on the
+// credential type and backend implementation.
+trest_auth_status_enum
+trest_update_auth (trest_ptr ptr);
+
 // make a json request; uses Encoding application/json
 // and Accept-Endcoding application/json accordingly
 trest_request_ptr
