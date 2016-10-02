@@ -47,7 +47,7 @@ trest_new_from_userpass(const char* host, int port,
 				const char *pass)
 {
 	struct trest* client =
-		calloc (sizeof(struct trest*), 1);
+		calloc (sizeof(struct trest), 1);
 
 	client->host = strdup(host);
 	client->port = port;
@@ -55,11 +55,11 @@ trest_new_from_userpass(const char* host, int port,
 	client->status = TREST_AUTH_STATUS_NOTAUTH;
 
 	client->credentials = malloc(sizeof(char*) * 3);
-	*client->credentials++ = strdup(user);
-	*client->credentials++ = strdup(pass);
-	*client->credentials = (char*) 0;
+	client->credentials[0] = strdup(user);
+	client->credentials[1] = strdup(pass);
+	client->credentials[2] = (char*) 0;
 
-	return (trest_ptr*) client;
+	return (trest_ptr) client;
 }
 
 void
@@ -68,13 +68,14 @@ trest_free (trest_ptr ptr)
 	struct trest* client = (struct trest*) ptr;
 	char **cptr = client->credentials;
 
-	while(cptr && *cptr) {
+	while(*cptr) {
 		free (*cptr++);
 	}
+	free(client->credentials);
 
-	if (cptr) {
-		free(cptr);
-	}
+	free(client->host);
+
+	free (ptr);
 
 	return;
 }
@@ -162,7 +163,7 @@ trest_make_request (trest_method_enum method,
 //   -- can be tweaked against the _request objects. By
 //   -- default the client uses.
 trest_response_ptr
-tcloud_client_do_request (trest_ptr *client,
+tcloud_client_do_request (trest_ptr client,
 			trest_request_ptr request,
 			trest_cb callback,
 			void* user_data)
@@ -171,7 +172,7 @@ tcloud_client_do_request (trest_ptr *client,
 }
 
 trest_response_ptr
-tcloud_client_do__json_request (trest_ptr *client,
+tcloud_client_do__json_request (trest_ptr client,
 				trest_request_ptr request)
 {
 	return NULL;
