@@ -24,7 +24,8 @@ struct http_response_parser {
 };
 
 static unsigned char*
-buf_nappend (unsigned char *buf, size_t *at, const unsigned char* append, size_t *bufsize, size_t n) {
+buf_nappend (unsigned char *buf, size_t *at, const unsigned char* append, size_t *bufsize, size_t n)
+{
 	if (*at + n > *bufsize) {
 		*bufsize += BUF_BLOCKSIZE;
 		buf = realloc (buf, *bufsize);
@@ -35,13 +36,15 @@ buf_nappend (unsigned char *buf, size_t *at, const unsigned char* append, size_t
 }
 
 static unsigned char*
-buf_append (unsigned char *buf, size_t *at, const unsigned char* append, size_t *bufsize) {
+buf_append (unsigned char *buf, size_t *at, const unsigned char* append, size_t *bufsize)
+{
 	buf_nappend(buf, at, append, bufsize, strlen(append));
 	return buf;
 }
 
 static unsigned char*
-buf_append_int(unsigned char *buf, size_t *at, int append, size_t *bufsize) {
+buf_append_int(unsigned char *buf, size_t *at, int append, size_t *bufsize)
+{
 	unsigned char append_buf[256];
 	sprintf(append_buf, "%d", append);
 	buf = buf_append (buf, at, append_buf, bufsize);
@@ -49,7 +52,8 @@ buf_append_int(unsigned char *buf, size_t *at, int append, size_t *bufsize) {
 }
 
 static size_t
-make_http_req (t_thttp_request *req, unsigned char **buf) {
+make_http_req (t_thttp_request *req, unsigned char **buf)
+{
 	size_t bufsize = BUF_BLOCKSIZE * sizeof(unsigned char);
 	size_t at = 0;
 	char **headers = req->headers;
@@ -148,18 +152,20 @@ static const struct http_funcs _http_response_funcs = {
 
 
 t_thttp_request*
-thttp_request_new_0 () {
+thttp_request_new_0 ()
+{
 	return calloc (sizeof(t_thttp_request), 1);
 }
 
 void
-thttp_request_free (t_thttp_request* ptr) {
+thttp_request_free (t_thttp_request* ptr)
+{
 	free (ptr);
 }
 
 void
-thttp_response_free (t_thttp_response* ptr) {
-
+thttp_response_free (t_thttp_response* ptr)
+{
 	char **headers_i = ptr->headers;
 
 	while (headers_i && *headers_i) {
@@ -172,7 +178,8 @@ thttp_response_free (t_thttp_response* ptr) {
 }
 
 t_thttp_response*
-thttp_request_do (t_thttp_request* req) {
+thttp_request_do (t_thttp_request* req)
+{
 	int ret, len, server_fd;
 	unsigned char *reqbuf = 0;
 	unsigned char resbuf[1024];
@@ -272,7 +279,8 @@ exit:
 }
 
 static int
-strcmp_0 (const char *s1, const char *s2) {
+strcmp_0 (const char *s1, const char *s2)
+{
 	if (s1 == s2)
 		return 0;
 	if (s1 == NULL)
@@ -467,7 +475,8 @@ thttp_string_to_status (char* string)
 }
 
 t_thttp_proto
-thttp_string_to_proto (char *string) {
+thttp_string_to_proto (char *string)
+{
 
 	if (!strcmp_0 ("HTTP", string)) return THTTP_PROTO_HTTP;
 
@@ -475,7 +484,8 @@ thttp_string_to_proto (char *string) {
 }
 
 const char*
-thttp_proto_to_string (t_thttp_proto proto) {
+thttp_proto_to_string (t_thttp_proto proto)
+{
 
 	switch(proto) {
 	case THTTP_PROTO_HTTP:
@@ -486,7 +496,8 @@ thttp_proto_to_string (t_thttp_proto proto) {
 }
 
 t_thttp_proto_version
-thttp_string_to_proto_version (char *string) {
+thttp_string_to_proto_version (char *string)
+{
 
 	if (!strcmp_0 ("1.0", string))
 		return THTTP_PROTO_VERSION_10;
@@ -498,7 +509,8 @@ thttp_string_to_proto_version (char *string) {
 
 
 const char*
-thttp_proto_version_to_string (t_thttp_proto_version proto) {
+thttp_proto_version_to_string (t_thttp_proto_version proto)
+{
 
 	switch(proto) {
 	case THTTP_PROTO_VERSION_10:
@@ -511,7 +523,8 @@ thttp_proto_version_to_string (t_thttp_proto_version proto) {
 }
 
 t_thttp_method
-thttp_string_to_method (char *string) {
+thttp_string_to_method (char *string)
+{
 
 	if (!strcmp_0 ("GET", string)) return THTTP_METHOD_GET;
 	if (!strcmp_0 ("POST", string)) return THTTP_METHOD_POST;
@@ -526,7 +539,8 @@ thttp_string_to_method (char *string) {
 
 
 const char*
-thttp_method_to_string (t_thttp_proto proto) {
+thttp_method_to_string (t_thttp_proto proto)
+{
 
 	switch(proto) {
 	case THTTP_METHOD_GET:
@@ -547,4 +561,3 @@ thttp_method_to_string (t_thttp_proto proto) {
 
 	return "UNKNOWN";
 }
-
