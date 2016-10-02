@@ -37,7 +37,7 @@ $(LIBTHTTP_BUILD_DIR)/$(LOCAL_MODULE_FILENAME):
 
 # Custom clean rule. LOCAL_MODULE_FILENAME already deleted by common rule
 .PHONY: libthttp-clean
-busybox-clean:
+libthttp-clean:
 	$(Q)if [ -d $(LIBTHTTP_SRC_DIR) ]; then \
 		$(MAKE) $(LIBTHTTP_MAKE_ARGS) -C $(LIBTHTTP_SRC_DIR) uninstall \
 			|| echo "Ignoring uninstall errors"; \
