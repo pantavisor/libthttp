@@ -3,7 +3,7 @@ TARGET = login-client
 all:
 	$(CC) $(CFLAGS) -o $(TARGET) \
 		thttp.c \
-		thttp-acloud.c \
+		trest.c \
 		main.c \
 		tinyhttp/chunk.c \
 		tinyhttp/header.c \

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "thttp-acloud.h"
+#include "trest.h"
 
 enum tcloudc_rtype {
 	tcloudc_rtype_JSON =1,
