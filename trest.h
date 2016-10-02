@@ -63,10 +63,10 @@ trest_update_auth (trest_ptr ptr);
 // make a json request; uses Encoding application/json
 // and Accept-Endcoding application/json accordingly
 trest_request_ptr
-trest_make_json_request (trest_method_enum method,
-			char *endpoint_path,
-			char **queries,
-			char *json_body);
+trest_make_request (trest_method_enum method,
+		char *endpoint_path,
+		char **queries,
+		char *json_body);
 
 // make a blob request expecting a blob back. this request
 // takes a callback function that will be called to pump

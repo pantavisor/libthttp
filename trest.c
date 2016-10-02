@@ -10,9 +10,9 @@ enum trest_rtype {
 };
 
 enum trest_auth_type {
-	trest_auth_type_BASIC,
+	trest_auth_type_BASIC=0,
 	trest_auth_type_DAUTH,
-	trest_auth_type_UNKNOWN
+	trest_auth_type_UNKNOWN=10000
 };
 
 
@@ -71,12 +71,10 @@ trest_free (trest_ptr ptr)
 	while(*cptr) {
 		free (*cptr++);
 	}
+
 	free(client->credentials);
-
 	free(client->host);
-
 	free (ptr);
-
 	return;
 }
 
@@ -84,14 +82,19 @@ void
 trest_request_free (trest_request_ptr ptr)
 {
 	struct trest_request* req = (struct trest_request*) ptr;
-	char **queries_i = req->queries;
 
-	while(queries_i && *queries_i)
-		free(queries_i++);
+	if (req->queries) {
+		char **queries_i = req->queries;
+		while(*queries_i) {
+			free(*queries_i);
+			queries_i++;
+		}
+	}
 
 	free(req->queries);
 	free(req->endpoint_path);
 	free(req->json_body);
+	free(req);
 }
 
 void
@@ -130,26 +133,29 @@ trest_make_request (trest_method_enum method,
 {
 	// XXX: implement parameter precondition checks
 	struct trest_request* r =
-		malloc (sizeof(struct trest_request*));
+		malloc (sizeof(struct trest_request));
 
-	size_t queries_size = 1;
-	int queries_len = 0;
 	char **queries_i = queries;
-
-	r->queries = calloc(sizeof(char*), queries_size);
-	r->queries[queries_len] = 0;
 
 	r->method = method;
 	r->endpoint_path = strdup(endpoint_path);
 	r->json_body= strdup(json_body);
+	r->queries = 0;
 
-	// XXX: make a ptrvdup
-	while (queries && *queries) {
-		queries_len++;
-		if (queries_len >= queries_size) {
-			queries_size += 128 * sizeof(char*);
-			r->queries = realloc(r->queries, queries_size);
-			r->queries[queries_len++] = *queries++;
+	if (queries_i) {
+		size_t queries_size = 1;
+		int queries_len = 0;
+		r->queries = calloc(sizeof(char*), queries_size);
+		r->queries[queries_len] = 0;
+
+		// XXX: make a ptrvdup
+		while (*queries_i) {
+			r->queries[queries_len] = strdup(*queries_i++);
+			queries_len++;
+			if (queries_len >= queries_size) {
+				queries_size += 128 * sizeof(char*);
+				r->queries = realloc(r->queries, queries_size);
+			}
 		}
 	}
 	return r;
