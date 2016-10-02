@@ -9,9 +9,17 @@ enum trest_rtype {
 	trest_rtype_BLOB,
 };
 
+enum trest_auth_type {
+	trest_auth_type_BASIC,
+	trest_auth_type_DAUTH,
+	trest_auth_type_UNKNOWN
+};
+
+
 struct trest {
 	char *host;
 	int port;
+	enum trest_auth_type type;
 
 	char **credentials;
 	char *access_token;
@@ -41,6 +49,7 @@ trest_new_from_userpass(const char* host, int port,
 
 	client->host = strdup(host);
 	client->port = port;
+	client->type = trest_auth_type_BASIC;
 
 	client->credentials = malloc(sizeof(char*) * 3);
 	*client->credentials++ = strdup(user);
