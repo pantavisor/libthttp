@@ -28,5 +28,5 @@ clean:
 
 install:
 	install -d $(DESTDIR)$(PREFIX)/bin/ 
-	install -D $(TARGET) $(DESTDIR)$(PREFIX)/bin/
+	install -D $(TARGETS) $(DESTDIR)$(PREFIX)/bin/
 
