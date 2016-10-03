@@ -1,6 +1,8 @@
 TARGETS = thttp-example1 trest-example1
 
-CFLAGS := -g
+CFLAGS := -g 
+
+trest-example1_DEFINES := -DJSMN_PARENT_LINKS=1
 
 all: $(TARGETS)
 
@@ -20,7 +22,7 @@ thttp-example1: $(LIBTHTTP_PREREQ) thttp-example1.c
 		$(filter %.c, $^)
 
 trest-example1: $(LIBTREST_PREREQ) trest-example1.c
-	$(CC) $(CFLAGS) -o $@ \
+	$(CC) $(CFLAGS) $($@_DEFINES) -o $@ \
 		$(filter %.c, $^)
 
 clean:
