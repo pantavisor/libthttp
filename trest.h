@@ -20,7 +20,19 @@ typedef enum trest_method {
 
 typedef void* trest_ptr;
 typedef void* trest_request_ptr;
-typedef void* trest_response_ptr;
+
+typedef struct trest_response {
+	trest_auth_status_enum status;
+
+	char *body;
+	char **headers;
+
+	jsmntok_t *json_tokv;
+	int json_tokc;
+
+} trest_response_t;
+
+typedef trest_response_t* trest_response_ptr;
 
 // callback for blob messages. this gets called when
 // new data is available with data pointing to the
@@ -36,8 +48,8 @@ typedef void (*trest_cb) (void *user_data,
 
 trest_ptr
 trest_new_from_userpass(const char* host, int port,
-				const char *user,
-				const char *pass);
+			const char *user,
+			const char *pass);
 
 void
 trest_free (trest_ptr ptr);
@@ -92,5 +104,5 @@ trest_do_request (trest_ptr client,
 			void* user_data);
 
 trest_response_ptr
-trest_do_json_request (trest_ptr *client,
+trest_do_json_request (trest_ptr client,
 			trest_request_ptr);

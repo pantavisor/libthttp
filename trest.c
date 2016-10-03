@@ -1,8 +1,12 @@
 
+#include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "jsmn/jsmn.h"
 #include "trest.h"
+#include "thttp.h"
 
 enum trest_rtype {
 	trest_rtype_JSON =1,
@@ -30,16 +34,12 @@ struct trest {
 
 struct trest_request {
 	enum trest_rtype type;
-	trest_method_enum method;
+	t_thttp_method method;
 
 	char *endpoint_path;
 	char **queries;
 	char *json_body;
 };
-
-struct trest_response {
-};
-
 
 trest_ptr
 trest_new_from_userpass(const char* host, int port,
@@ -100,6 +100,11 @@ trest_request_free (trest_request_ptr ptr)
 void
 trest_response_free (trest_response_ptr ptr)
 {
+	if (ptr->body)
+		free(ptr->body);
+	if(ptr->json_tokv)
+		free(ptr->json_tokv);
+	free(ptr);
 }
 
 // check auth status if you are just interested in this
@@ -170,18 +175,84 @@ trest_make_request (trest_method_enum method,
 //   -- default the client uses.
 trest_response_ptr
 trest_do_request (trest_ptr client,
-			trest_request_ptr request,
-			trest_cb callback,
-			void* user_data)
+		trest_request_ptr request,
+		trest_cb callback,
+		void* user_data)
 {
 	return NULL;
 }
 
-trest_response_ptr
-trest_do__json_request (trest_ptr client,
-				trest_request_ptr request)
+static int
+parse_json (const char *buf, jsmntok_t **jsonv_out, int *jsonc_out)
 {
-	return NULL;
+	jsmn_parser parser;
+	int r;
+
+	jsmn_init (&parser);
+
+	*jsonc_out=10;
+	*jsonv_out = malloc (*jsonc_out * sizeof(jsmntok_t));
+
+	if (*jsonv_out == NULL) {
+		fprintf(stderr, "malloc(): errno=%d\n", errno);
+		return 0;
+	}
+again:
+	r = jsmn_parse(&parser, buf, strlen (buf), *jsonv_out,
+		*jsonc_out);
+
+	if (r < 0) {
+		if (r == JSMN_ERROR_NOMEM) {
+			*jsonc_out = *jsonc_out * 2;
+			*jsonv_out = realloc(*jsonv_out, sizeof(jsmntok_t)
+					* *jsonc_out);
+			if (jsonv_out == NULL) {
+				return 0;
+			}
+			goto again;
+		}
+	}
+	return *jsonc_out;
+}
+
+trest_response_ptr
+trest_do_json_request (trest_ptr client,
+			trest_request_ptr request)
+{
+
+	t_thttp_request *req = thttp_request_new_0();
+	trest_response_t *res = calloc (sizeof(trest_response_t),1);
+	struct trest_request *req_in = (struct trest_request*) request;
+	struct trest *c = (struct trest*) client;
+	jsmntok_t *tokv;
+	int tokc;
+
+	req->method = req_in->method;
+	req->proto = THTTP_PROTO_HTTP;
+	req->proto_version = THTTP_PROTO_VERSION_10;
+	req->use_tls=0;
+	req->path = req_in->endpoint_path;
+	req->host = c->host;
+	req->port = c->port;
+	req->body = 0;
+	req->headers = 0;
+
+	t_thttp_response *response = thttp_request_do(req);
+	res->body = strdup(response->body);
+	res->headers = response->headers;
+
+	if (!parse_json (response->body, &res->json_tokv, &res->json_tokc))
+	{
+		// XXX: update auth status of response?
+		printf ("failed to parse_json\n");
+		trest_response_free(res);
+		res = 0;
+	}
+
+	thttp_request_free(req);
+	thttp_response_free(response);
+
+	return (trest_response_ptr) res;
 }
 
 // callback for blob messages. this gets called when
