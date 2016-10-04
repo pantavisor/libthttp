@@ -26,9 +26,11 @@ typedef struct trest_response {
 
 	char *body;
 	char **headers;
+	int code;
 
 	jsmntok_t *json_tokv;
-	int json_tokc;
+	int json_toks; // size of buffer
+	int json_tokc; // count of tokens after parse
 
 } trest_response_t;
 
@@ -42,8 +44,8 @@ typedef trest_response_t* trest_response_ptr;
 //  - EOF:  data == 0 && data_len == 0
 //  - ERROR" data == 0 && data_len == ERROR_CODE
 typedef void (*trest_cb) (void *user_data,
-				unsigned char* data,
-				size_t data_len);
+			  unsigned char* data,
+			  size_t data_len);
 
 
 trest_ptr
@@ -76,18 +78,19 @@ trest_update_auth (trest_ptr ptr);
 // and Accept-Endcoding application/json accordingly
 trest_request_ptr
 trest_make_request (trest_method_enum method,
-		char *endpoint_path,
-		char **queries,
-		char *json_body);
+		    char *endpoint_path,
+		    char **queries,
+		    char **headers,
+		    char *json_body);
 
 // make a blob request expecting a blob back. this request
 // takes a callback function that will be called to pump
 // the blob data stream
 trest_request_ptr
 trest_make_blob_request (trest_method_enum method,
-			char *endpoint_path,
-			char **queries,
-			char *json_body);
+			 char *endpoint_path,
+			 char **queries,
+			 char *json_body);
 
 
 // execute the request.
@@ -99,10 +102,10 @@ trest_make_blob_request (trest_method_enum method,
 //   -- default the client uses.
 trest_response_ptr
 trest_do_request (trest_ptr client,
-			trest_request_ptr ptr,
-			trest_cb callback,
-			void* user_data);
+		  trest_request_ptr ptr,
+		  trest_cb callback,
+		  void* user_data);
 
 trest_response_ptr
 trest_do_json_request (trest_ptr client,
-			trest_request_ptr);
+		       trest_request_ptr);
