@@ -96,6 +96,8 @@ make_http_req (t_thttp_request *req, unsigned char **buf)
 		*buf = buf_append (*buf, &at, "\r\n", &bufsize);
 		*buf = buf_append (*buf, &at, "\r\n", &bufsize);
 		*buf = buf_append (*buf, &at, req->body, &bufsize);
+	} else {
+		*buf = buf_append (*buf, &at, "\r\n", &bufsize);
 	}
 	// GOGOGO
 	*buf = buf_append (*buf, &at, "\r\n", &bufsize);
@@ -281,6 +283,9 @@ exit_connect:
 	close (server_fd);
 
 	// XXX:  fill response struct
+
+	if (DEBUG)
+		printf("thttp parser return: %s\n", parser.out->body);
 
 	return parser.out;
 }
