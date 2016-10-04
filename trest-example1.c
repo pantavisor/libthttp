@@ -1,4 +1,6 @@
-#include "stdio.h"
+#include <stdio.h>
+#include <unistd.h>
+
 #include "trest.h"
 
 #define DEFAULT_HOST "localhost"
@@ -87,6 +89,18 @@ int main (char **argv, int argc) {
 		goto exit;
 	}
 	printf(" OK\n");
+
+	for (int i=0; i< 5; i++) {
+		sleep(1);
+		printf("do trest_update_auth (run 2: %d/4) ...", i);
+		auth_status = trest_update_auth (client);
+		if (auth_status != TREST_AUTH_STATUS_OK) {
+			printf (" ERROR (!auth_status: %d)\n", auth_status);
+			rv = 6;
+			goto exit;
+		}
+		printf(" OK\n");
+	}
 
 exit:
 	if (res)
