@@ -1,8 +1,10 @@
 TARGETS = thttp-example1 trest-example1
 
+DEBUG := 0
 CFLAGS := -g 
 
-trest-example1_DEFINES := -DJSMN_PARENT_LINKS=1
+trest-example1_DEFINES := -DJSMN_PARENT_LINKS=1 -DDEBUG=$(DEBUG)
+thttp-example1_DEFINES := -DDEBUG=$(DEBUG)
 
 all: $(TARGETS)
 
