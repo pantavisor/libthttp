@@ -4,7 +4,7 @@
 #define DEFAULT_HOST "localhost"
 #define DEFAULT_PORT 12365
 #define DEFAULT_USER "user1"
-#define DEFAULT_PASS "pass"
+#define DEFAULT_PASS "user1"
 
 int main (char **argv, int argc) {
 	int rv = 0;
@@ -14,7 +14,7 @@ int main (char **argv, int argc) {
 
 	printf("Creating trest client ...");
 	client = trest_new_from_userpass(DEFAULT_HOST, DEFAULT_PORT,
-					DEFAULT_USER, DEFAULT_PASS);
+					 DEFAULT_USER, DEFAULT_PASS);
 
 	if (!client) {
 		printf (" ERROR\n");
@@ -38,13 +38,14 @@ int main (char **argv, int argc) {
 
 	printf("make json_request for /api/auth/login ...");
 	req = trest_make_request (TREST_METHOD_POST,
-				"/api/auth/login",
-				0,
-				"{ username: \""
-				DEFAULT_USER
-				"\", password: \""
-				DEFAULT_PASS
-				"\" }");
+				  "/api/auth/login",
+				  0, // queries
+				  0, // headers
+				  "{ username: \""
+				  DEFAULT_USER
+				  "\", password: \""
+				  DEFAULT_PASS
+				  "\" }");
 	if (!req) {
 		printf (" ERROR (!req)\n");
 		rv = 3;
@@ -55,10 +56,20 @@ int main (char **argv, int argc) {
 
 	printf("do json_request ...");
 	res = trest_do_json_request(client,
-				req);
+				    req);
 	if (!res) {
 		printf (" ERROR (!res)\n");
 		rv = 4;
+		goto exit;
+	}
+	printf(" OK\n");
+
+
+	printf("do trest_update_auth ...");
+	trest_auth_status_enum auth_status = trest_update_auth (client);
+	if (auth_status != TREST_AUTH_STATUS_OK) {
+		printf (" ERROR (!auth_status: %d)\n", auth_status);
+		rv = 5;
 		goto exit;
 	}
 	printf(" OK\n");
