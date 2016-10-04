@@ -191,8 +191,9 @@ thttp_request_do (t_thttp_request* req)
 	memset (&parser, 0, sizeof (parser));
 	parser.out = calloc(sizeof(t_thttp_response), 1);
 
-	printf ("Connecting to tcp/%s/%4d...", req->host,
-		req->port);
+	if (DEBUG)
+		printf ("Connecting to tcp/%s/%4d...", req->host,
+			req->port);
 
 	fflush (stdout);
 
@@ -219,22 +220,25 @@ thttp_request_do (t_thttp_request* req)
 					sizeof( server_addr ))) < 0)
 	{
 		printf ("ERROR: failed\n  ! connect returned %d\n\n", ret);
-		goto exit;
+		goto exit_connect;
 	}
 
-	printf (" OK\n");
+	if (DEBUG)
+		printf (" OK\n");
 
-	printf ("Write to server:\n");
+	if (DEBUG)
+		printf ("Write to server:\n");
 	fflush (stdout);
 
 	len = make_http_req (req, &reqbuf);
 
-	printf ("%s\n", reqbuf);
+	if (DEBUG)
+		printf ("%s\n", reqbuf);
 
 	while ((ret = write (server_fd, reqbuf, len)) <= 0) {
 		if (ret != 0) {
 			printf ("failed\n  ! write returned %d\n\n", ret);
-			goto exit;
+			goto exit_write;
 		}
 	}
 
@@ -270,8 +274,10 @@ thttp_request_do (t_thttp_request* req)
 	}
 
 exit:
-	free (reqbuf);
 	http_free(&rt);
+exit_write:
+	free (reqbuf);
+exit_connect:
 	close (server_fd);
 
 	// XXX:  fill response struct

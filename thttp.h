@@ -1,5 +1,9 @@
 #include "thttp-enums.h"
 
+#ifndef DEBUG
+#define DEBUG 0
+#endif
+
 typedef struct thttp_request {
 	t_thttp_method method;
 	t_thttp_proto proto;
