@@ -5,19 +5,24 @@
 #define DEFAULT_PORT 12365
 #define DEFAULT_USER "user1"
 #define DEFAULT_PASS "user1"
+#define DEFAULT_BADPASS "badpassword"
 
 int main (char **argv, int argc) {
 	int rv = 0;
 	trest_ptr client = 0;
+	trest_ptr badclient = 0;
 	trest_response_ptr res = 0;
 	trest_request_ptr req = 0;
 
-	printf("Creating trest client ...");
+	printf("Creating trest clients ...");
 	client = trest_new_from_userpass(DEFAULT_HOST, DEFAULT_PORT,
 					 DEFAULT_USER, DEFAULT_PASS);
 
-	if (!client) {
-		printf (" ERROR\n");
+	badclient = trest_new_from_userpass(DEFAULT_HOST, DEFAULT_PORT,
+					    DEFAULT_USER, DEFAULT_BADPASS);
+
+	if (!client || !badclient) {
+		printf (" ERROR creating clients\n");
 		rv = 1;
 		goto exit;
 	}
@@ -65,11 +70,20 @@ int main (char **argv, int argc) {
 	printf(" OK\n");
 
 
-	printf("do trest_update_auth ...");
-	trest_auth_status_enum auth_status = trest_update_auth (client);
-	if (auth_status != TREST_AUTH_STATUS_OK) {
+	printf("do trest_update_auth (run 1: bad credentials) ...");
+	trest_auth_status_enum auth_status = trest_update_auth (badclient);
+	if (auth_status != TREST_AUTH_STATUS_NOTAUTH) {
 		printf (" ERROR (!auth_status: %d)\n", auth_status);
 		rv = 5;
+		goto exit;
+	}
+	printf(" OK\n");
+
+	printf("do trest_update_auth (run 1: credentials) ...");
+	auth_status = trest_update_auth (client);
+	if (auth_status != TREST_AUTH_STATUS_OK) {
+		printf (" ERROR (!auth_status: %d)\n", auth_status);
+		rv = 6;
 		goto exit;
 	}
 	printf(" OK\n");
@@ -81,6 +95,8 @@ exit:
 		trest_request_free(req);
 	if (client)
 		trest_free (client);
+	if (badclient)
+		trest_free (badclient);
 
 	printf("END OF TESTRUN\n");
 	return rv;
