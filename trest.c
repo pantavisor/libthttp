@@ -88,6 +88,9 @@ update_tokens_from_json_response (struct trest *self,
 	c = response->json_tokc;
 	body = response->body;
 
+	if (DEBUG)
+		printf ("update_tokens_from_json_response: %s\n", body);
+
 	for (i=0; i<c && t != 0; i++) {
 		int n = jv[i].end - jv[i].start;
 		char *token = malloc(n+1);
@@ -112,12 +115,53 @@ update_tokens_from_json_response (struct trest *self,
 		}
 		free(token);
 	}
+	if (DEBUG && self->access_token)
+		printf("New access token: %s\n", self->access_token);
+	if (DEBUG && self->refresh_token)
+		printf("New refresh token: %s\n", self->access_token);
 }
 
 static trest_auth_status_enum
 do_refresh_login (struct trest *self)
 {
-	return TREST_AUTH_STATUS_UNKNOWN;
+	const char *htmpl = "Authorization: Bearer %s";
+	trest_response_ptr r;
+	char **h = malloc (sizeof(char*) * 2);
+
+	h[0] = malloc (sizeof(char) *
+		       (strlen(htmpl)
+			+ strlen (self->refresh_token)));
+	sprintf(h[0], htmpl, self->refresh_token);
+
+	h[1] = 0;
+
+	if (DEBUG)
+		printf ("refresh login with: %s\n", h[0]);
+
+	trest_request_ptr p = trest_make_request (TREST_METHOD_GET,
+						  "/api/auth/login",
+						  NULL,
+						  h,
+						  NULL);
+	free (h[0]);
+	free (h);
+
+	r = trest_do_json_request (self, p);
+
+	if (r->code == THTTP_STATUS_UNAUTHORIZED) {
+		self->status = TREST_AUTH_STATUS_NOTAUTH;
+		goto exit;
+	} else if (r->code != THTTP_STATUS_OK) {
+		self->status = TREST_AUTH_STATUS_ERROR;
+		goto exit;
+	}
+	update_tokens_from_json_response (self, r);
+
+	self->status = TREST_AUTH_STATUS_OK;
+exit:
+	trest_request_free(p);
+	trest_response_free(r);
+	return self->status;
 }
 
 static trest_auth_status_enum
@@ -148,7 +192,6 @@ do_credentials_login (struct trest *self)
 	free (b);
 
 	r = trest_do_json_request (self, p);
-	trest_request_free(p);
 
 	if (DEBUG)
 		printf ("do_credentials_login code: %d\n", r->code);
@@ -163,6 +206,7 @@ do_credentials_login (struct trest *self)
 
 	self->status = TREST_AUTH_STATUS_OK;
 exit:
+	trest_request_free(p);
 	trest_response_free(r);
 	return self->status;
 }
@@ -214,17 +258,30 @@ trest_request_free (trest_request_ptr ptr)
 {
 	struct trest_request* req = (struct trest_request*) ptr;
 
+	if (req->json_body)
+		free(req->json_body);
+
 	if (req->queries) {
 		char **queries_i = req->queries;
 		while(*queries_i) {
 			free(*queries_i);
 			queries_i++;
 		}
+		free(req->queries);
 	}
 
-	free(req->queries);
-	free(req->endpoint_path);
-	free(req->json_body);
+	if (req->headers) {
+		char **headers_i = req->headers;
+		while(*headers_i) {
+			free(*headers_i);
+			headers_i++;
+		}
+		free(req->headers);
+	}
+
+	if(req->endpoint_path)
+		free(req->endpoint_path);
+
 	free(req);
 }
 
@@ -285,7 +342,7 @@ trest_make_request (trest_method_enum method,
 
 	r->method = method;
 	r->endpoint_path = strdup(endpoint_path);
-	r->json_body = strdup(json_body);
+	r->json_body = json_body ? strdup(json_body) : 0;
 	r->queries = 0;
 	r->headers = 0;
 
@@ -311,20 +368,21 @@ headers:
 	if (!headers_i)
 		goto exit;
 
-	size_t headers_size = 1;
+	int headers_size = 1;
 	int headers_len = 0;
 	r->headers = calloc(sizeof(char*), headers_size);
-	r->headers[headers_len] = 0;
 
 	// XXX: make a ptrvdup
 	while (*headers_i) {
-		r->headers[headers_len] = strdup(*headers_i++);
+		r->headers[headers_len] = strdup(*headers_i);
 		headers_len++;
+		headers_i++;
 		if (headers_len >= headers_size) {
-			headers_size += 128 * sizeof(char*);
-			r->headers = realloc(r->headers, headers_size);
+			headers_size += 128;
+			r->headers = realloc(r->headers, sizeof(char*) * headers_size);
 		}
 	}
+	r->headers[headers_len] = 0;
 
 exit:
 	return r;
@@ -368,6 +426,7 @@ trest_do_json_request (trest_ptr client,
 	req->host = c->host;
 	req->port = c->port;
 	req->body = req_in->json_body;
+	req->headers = req_in->headers;
 	if (req_in->json_body)
 		req->body_content_type = "application/json";
 
