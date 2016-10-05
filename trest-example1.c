@@ -50,6 +50,7 @@ int main (char **argv, int argc)
 
 	server_host = getenv ("ABCI_HOST") ? getenv ("ABCI_HOST") :  DEFAULT_HOST;
 
+	printf ("ABCI_HOST: %s\n", server_host);
 	printf("Creating trest userclients ...");
 	userclient = trest_new_from_userpass(server_host, DEFAULT_PORT,
 					     DEFAULT_USER, DEFAULT_USERPASS);
