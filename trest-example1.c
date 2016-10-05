@@ -40,6 +40,8 @@ get_json_string_value(char *buf, char *key, jsmntok_t* tok, int tokc)
 int main (char **argv, int argc) {
 	int rv = 0;
 	char *device_id = 0;
+	char *device_abrn = 0;
+	char *device_nick = 0;
 	trest_ptr userclient = 0;
 	trest_ptr deviceclient = 0;
 	trest_ptr badclient = 0;
@@ -141,12 +143,12 @@ int main (char **argv, int argc) {
 				   "/api/devices/",
 				   0, // queries
 				   0, // headers
-				   "{ secret: \""
+				   "{ \"secret\": \""
 				   DEFAULT_DEVICEPASS
 				   "\" }");
 
 	res1 = trest_do_json_request(userclient,
-				    req1);
+				     req1);
 	if (!res1) {
 		printf (" ERROR (!res)\n");
 		rv = 7;
@@ -154,12 +156,17 @@ int main (char **argv, int argc) {
 	}
 	device_id = get_json_string_value (res1->body, "id", res1->json_tokv,
 					   res1->json_tokc);
-	printf(" OK [deviceid=%s]\n", device_id);
+	device_abrn = get_json_string_value (res1->body, "abrn", res1->json_tokv,
+					     res1->json_tokc);
+	device_nick = get_json_string_value (res1->body, "nick", res1->json_tokv,
+					     res1->json_tokc);
+
+	printf(" OK [deviceid=%s; abrn=%s; nick=%s]\n", device_id, device_abrn, device_nick);
 
 	printf("do trest_update_auth (device credentials) ...");
 
 	deviceclient = trest_new_from_userpass(DEFAULT_HOST, DEFAULT_PORT,
-					       DEFAULT_DEVICE, DEFAULT_DEVICEPASS);
+					       device_abrn, DEFAULT_DEVICEPASS);
 
 	if (!deviceclient) {
 		printf (" ERROR creating device client\n");
@@ -180,6 +187,10 @@ exit:
 
 	if (device_id)
 		free(device_id);
+	if (device_abrn)
+		free(device_abrn);
+	if (device_nick)
+		free(device_nick);
 	if (res)
 		trest_response_free(res);
 	if (req)
