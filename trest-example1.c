@@ -15,7 +15,7 @@
 #define DEVICE_TRAIL_ENDPOINT_FMT "/api/trails/%s/steps"
 
 static char*
-get_json_string_value(char *buf, char *key, jsmntok_t* tok, int tokc)
+get_json_key_value(char *buf, char *key, jsmntok_t* tok, int tokc)
 {
 	int i;
 	int t=-1;
@@ -25,7 +25,7 @@ get_json_string_value(char *buf, char *key, jsmntok_t* tok, int tokc)
 		if (tok[i].type == JSMN_STRING
 		    && !strncmp(buf + tok[i].start, key, n)) {
 			t=1;
-		} else if (t==1 && tok[i].type == JSMN_STRING) {
+		} else if (t==1) {
 			char *idval = malloc(n+1);
 			idval[n] = 0;
 			strncpy(idval, buf + tok[i].start, n);
@@ -38,14 +38,27 @@ get_json_string_value(char *buf, char *key, jsmntok_t* tok, int tokc)
 	return NULL;
 }
 
+int
+get_json_array_count(char *buf, jsmntok_t* tok, int tokc)
+{
+	if (tok[0].type != JSMN_ARRAY) {
+		printf ("provided tok is not of type JSNM_ARRAY\n");
+		return -1;
+	}
+
+	return tok[0].size;
+}
+
 int main (char **argv, int argc)
 {
 	int rv = 0;
 	char *device_abrn = 0, *device_id = 0, *device_nick = 0;
 	char *trail_steps_ep = 0;
 	trest_ptr badclient = 0, deviceclient = 0, userclient = 0;
-	trest_response_ptr res = 0, res1 = 0, res2 = 0, res3 = 0, res4 = 0, res5 = 0;
-	trest_request_ptr req = 0, req1 = 0, req2 = 0, req3 = 0, req4 = 0, req5 = 0;
+	trest_response_ptr res = 0, res1 = 0, res2 = 0, res3 = 0, res4 = 0,
+		res4a = 0, res5 = 0, res6 = 0;
+	trest_request_ptr req = 0, req1 = 0, req2 = 0, req3 = 0, req4 = 0,
+		req4a = 0, req5 = 0, req6 = 0;
 	const char *server_host;
 
 	server_host = getenv ("ABCI_HOST") ? getenv ("ABCI_HOST") :  DEFAULT_HOST;
@@ -155,12 +168,12 @@ int main (char **argv, int argc)
 		rv = 7;
 		goto exit;
 	}
-	device_id = get_json_string_value (res1->body, "id", res1->json_tokv,
-					   res1->json_tokc);
-	device_abrn = get_json_string_value (res1->body, "abrn", res1->json_tokv,
-					     res1->json_tokc);
-	device_nick = get_json_string_value (res1->body, "nick", res1->json_tokv,
-					     res1->json_tokc);
+	device_id = get_json_key_value (res1->body, "id", res1->json_tokv,
+					res1->json_tokc);
+	device_abrn = get_json_key_value (res1->body, "abrn", res1->json_tokv,
+					  res1->json_tokc);
+	device_nick = get_json_key_value (res1->body, "nick", res1->json_tokv,
+					  res1->json_tokc);
 
 	printf(" OK [deviceid=%s; abrn=%s; nick=%s]\n", device_id, device_abrn, device_nick);
 
@@ -226,7 +239,6 @@ int main (char **argv, int argc)
 
 
 	printf("post new step to trail as owner (device: %s) ...", device_nick);
-
 	req4 = trest_make_request (TREST_METHOD_POST,
 				   trail_steps_ep,
 				   0, // queries
@@ -247,13 +259,33 @@ int main (char **argv, int argc)
 	printf(" OK\n");
 
 
-	printf("get trail steps as owner (device: %s) ...", device_nick);
+	printf("post new step to trail as owner (device: %s) ...", device_nick);
+	req4a = trest_make_request (TREST_METHOD_POST,
+				    trail_steps_ep,
+				    0, // queries
+				    0, // headers
+				    "{\n"
+				    "  \"rev\": 2,\n"
+				    "  \"commit-msg\": \"move to myvalue2\",\n"
+				    "  \"state\": { \"mydata\": \"myvalue2\" }\n"
+				    "}");
 
+	res4a = trest_do_json_request(userclient,
+				      req4a);
+	if (!res4a) {
+		printf (" ERROR (!res4)\n");
+		rv = 121;
+		goto exit;
+	}
+	printf(" OK\n");
+
+
+	printf("get trail steps as owner (device: %s) ...", device_nick);
 	req5 = trest_make_request (TREST_METHOD_GET,
 				   trail_steps_ep,
 				   0, // queries
 				   0, // headers
-				   "{ \"mydata\": \"myvalue\" }");
+				   0);
 
 	res5 = trest_do_json_request(userclient,
 				     req5);
@@ -262,7 +294,23 @@ int main (char **argv, int argc)
 		rv = 12;
 		goto exit;
 	}
-	printf(" OK\n");
+	printf(" OK [steps: %d]\n", get_json_array_count (res5->body, res5->json_tokv, res5->json_tokc));
+
+	printf("get trail steps as device (device: %s) ...", device_nick);
+	req6 = trest_make_request (TREST_METHOD_GET,
+				   trail_steps_ep,
+				   0, // queries
+				   0, // headers
+				   0);
+
+	res6 = trest_do_json_request(deviceclient,
+				     req6);
+	if (!res6) {
+		printf (" ERROR (!res6)\n");
+		rv = 12;
+		goto exit;
+	}
+	printf(" OK [steps: %d]\n", get_json_array_count (res5->body, res5->json_tokv, res5->json_tokc));
 
 exit:
 	if (trail_steps_ep)
@@ -293,10 +341,18 @@ exit:
 		trest_response_free(res4);
 	if (req4)
 		trest_request_free(req4);
+	if (res4a)
+		trest_response_free(res4a);
+	if (req4a)
+		trest_request_free(req4a);
 	if (res5)
 		trest_response_free(res5);
 	if (req5)
 		trest_request_free(req5);
+	if (res6)
+		trest_response_free(res6);
+	if (req6)
+		trest_request_free(req6);
 	if (userclient)
 		trest_free (userclient);
 	if (deviceclient)
