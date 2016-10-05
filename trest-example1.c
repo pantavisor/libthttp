@@ -14,7 +14,7 @@
 
 #define DEVICE_TRAIL_ENDPOINT_FMT "/api/trails/%s/steps"
 
-typedef void (*token_iter_f) (void *data, char *buf, jsmntok_t* tok);
+typedef void (*token_iter_f) (void *data, char *buf, jsmntok_t* tok, int c);
 
 static int
 traverse_token (char *buf, jsmntok_t* tok, int t)
@@ -28,6 +28,9 @@ traverse_token (char *buf, jsmntok_t* tok, int t)
 	return c;
 }
 
+// is good for getting elements of any array type token. Just point tok+t to the
+// token of type array and it will iterate the direct children of that token
+// through travesal the depth first token array.
 static int
 iterate_json_array(char *buf, jsmntok_t* tok, int t, token_iter_f func, void *data)
 {
@@ -41,7 +44,7 @@ iterate_json_array(char *buf, jsmntok_t* tok, int t, token_iter_f func, void *da
 
 	c = t;
 	for(i=0; i < tok->size; i++) {
-		func(data, buf, tok+c+1);
+		func(data, buf, tok, c+1);
 		c = traverse_token (buf, tok, c+1);
 	}
 }
@@ -82,14 +85,14 @@ get_json_array_count(char *buf, jsmntok_t* tok, int tokc)
 }
 
 static void
-print_step (void *data, char* buf, jsmntok_t *tok)
+print_step (void *data, char* buf, jsmntok_t *tok, int c)
 {
-	int n = tok->end - tok->start;
+	int n = (tok+c)->end - (tok+c)->start;
 	char *s = malloc (sizeof (char) * n+2);
 	buf[n+1]=0;
-	strncpy(s, buf + tok->start, n+2);
+	strncpy(s, buf + (tok+c)->start, n+2);
 	printf ("TOKEN: start=%d, end=%d, buf=%s\n",
-		tok->start, tok->end, s);
+		(tok+c)->start, (tok+c)->end, s);
 	free(s);
 }
 
