@@ -14,6 +14,38 @@
 
 #define DEVICE_TRAIL_ENDPOINT_FMT "/api/trails/%s/steps"
 
+typedef void (*token_iter_f) (void *data, char *buf, jsmntok_t* tok);
+
+static int
+traverse_token (char *buf, jsmntok_t* tok, int t)
+{
+	int i;
+	int c;
+	c=t;
+	for (i=0; i < tok[t].size; i++) {
+		c = traverse_token (buf, tok, c+1);
+	}
+	return c;
+}
+
+static int
+iterate_json_array(char *buf, jsmntok_t* tok, int t, token_iter_f func, void *data)
+{
+	jsmntok_t *s;
+	int i;
+	int c;
+	if (tok[t].type != JSMN_ARRAY) {
+		printf("iterare_json_array: token not array");
+		return -1;
+	}
+
+	c = t;
+	for(i=0; i < tok->size; i++) {
+		func(data, buf, tok+c+1);
+		c = traverse_token (buf, tok, c+1);
+	}
+}
+
 static char*
 get_json_key_value(char *buf, char *key, jsmntok_t* tok, int tokc)
 {
@@ -47,6 +79,18 @@ get_json_array_count(char *buf, jsmntok_t* tok, int tokc)
 	}
 
 	return tok[0].size;
+}
+
+static void
+print_step (void *data, char* buf, jsmntok_t *tok)
+{
+	int n = tok->end - tok->start;
+	char *s = malloc (sizeof (char) * n+2);
+	buf[n+1]=0;
+	strncpy(s, buf + tok->start, n+2);
+	printf ("TOKEN: start=%d, end=%d, buf=%s\n",
+		tok->start, tok->end, s);
+	free(s);
 }
 
 int main (char **argv, int argc)
@@ -295,6 +339,7 @@ int main (char **argv, int argc)
 		goto exit;
 	}
 	printf(" OK [steps: %d]\n", get_json_array_count (res5->body, res5->json_tokv, res5->json_tokc));
+	iterate_json_array (res5->body, res5->json_tokv, 0, (token_iter_f) print_step, NULL);
 
 	printf("get trail steps as device (device: %s) ...", device_nick);
 	req6 = trest_make_request (TREST_METHOD_GET,
@@ -311,6 +356,7 @@ int main (char **argv, int argc)
 		goto exit;
 	}
 	printf(" OK [steps: %d]\n", get_json_array_count (res5->body, res5->json_tokv, res5->json_tokc));
+	iterate_json_array (res6->body, res6->json_tokv, 0, (token_iter_f) print_step, NULL);
 
 exit:
 	if (trail_steps_ep)
