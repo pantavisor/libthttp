@@ -12,6 +12,8 @@
 #define DEFAULT_BADPASS "badpassword"
 #define DEFAULT_DEVICEPASS "device1"
 
+#define DEVICE_TRAIL_ENDPOINT_FMT "/api/trails/%s/steps"
+
 static char*
 get_json_string_value(char *buf, char *key, jsmntok_t* tok, int tokc)
 {
@@ -36,20 +38,14 @@ get_json_string_value(char *buf, char *key, jsmntok_t* tok, int tokc)
 	return NULL;
 }
 
-int main (char **argv, int argc) {
+int main (char **argv, int argc)
+{
 	int rv = 0;
-	char *device_id = 0;
-	char *device_abrn = 0;
-	char *device_nick = 0;
-	trest_ptr userclient = 0;
-	trest_ptr deviceclient = 0;
-	trest_ptr badclient = 0;
-	trest_response_ptr res = 0;
-	trest_request_ptr req = 0;
-	trest_response_ptr res1 = 0;
-	trest_request_ptr req1 = 0;
-	trest_response_ptr res2 = 0;
-	trest_request_ptr req2 = 0;
+	char *device_abrn = 0, *device_id = 0, *device_nick = 0;
+	char *trail_steps_ep = 0;
+	trest_ptr badclient = 0, deviceclient = 0, userclient = 0;
+	trest_response_ptr res = 0, res1 = 0, res2 = 0, res3 = 0, res4 = 0, res5 = 0;
+	trest_request_ptr req = 0, req1 = 0, req2 = 0, req3 = 0, req4 = 0, req5 = 0;
 
 	printf("Creating trest userclients ...");
 	userclient = trest_new_from_userpass(DEFAULT_HOST, DEFAULT_PORT,
@@ -202,8 +198,71 @@ int main (char **argv, int argc) {
 
 	printf(" OK\n");
 
-exit:
 
+	printf("do get trail steps (device: %s) ...", device_nick);
+
+	trail_steps_ep = malloc ((sizeof(DEVICE_TRAIL_ENDPOINT_FMT)
+				  + strlen (device_id)) * sizeof(char));
+	sprintf(trail_steps_ep, DEVICE_TRAIL_ENDPOINT_FMT, device_id);
+
+	req3 = trest_make_request (TREST_METHOD_GET,
+				   trail_steps_ep,
+				   0, // queries
+				   0, // headers
+				   NULL);
+
+	res3 = trest_do_json_request(deviceclient,
+				     req3);
+	if (!res3) {
+		printf (" ERROR (!res3)\n");
+		rv = 11;
+		goto exit;
+	}
+	printf(" OK\n");
+
+
+	printf("post new step to trail as owner (device: %s) ...", device_nick);
+
+	req4 = trest_make_request (TREST_METHOD_POST,
+				   trail_steps_ep,
+				   0, // queries
+				   0, // headers
+				   "{\n"
+				   "  \"rev\": 1,\n"
+				   "  \"commit-msg\": \"move to myvalue1\",\n"
+				   "  \"state\": { \"mydata\": \"myvalue1\" }\n"
+				   "}");
+
+	res4 = trest_do_json_request(userclient,
+				     req4);
+	if (!res4) {
+		printf (" ERROR (!res4)\n");
+		rv = 12;
+		goto exit;
+	}
+	printf(" OK\n");
+
+
+	printf("get trail steps as owner (device: %s) ...", device_nick);
+
+	req5 = trest_make_request (TREST_METHOD_GET,
+				   trail_steps_ep,
+				   0, // queries
+				   0, // headers
+				   "{ \"mydata\": \"myvalue\" }");
+
+	res5 = trest_do_json_request(userclient,
+				     req5);
+	if (!res5) {
+		printf (" ERROR (!res5)\n");
+		rv = 12;
+		goto exit;
+	}
+	printf(" OK\n");
+
+exit:
+	if (trail_steps_ep)
+		free(trail_steps_ep);
 	if (device_id)
 		free(device_id);
 	if (device_abrn)
@@ -222,6 +281,18 @@ exit:
 		trest_response_free(res2);
 	if (req2)
 		trest_request_free(req2);
+	if (res3)
+		trest_response_free(res3);
+	if (req3)
+		trest_request_free(req3);
+	if (res4)
+		trest_response_free(res4);
+	if (req4)
+		trest_request_free(req4);
+	if (res5)
+		trest_response_free(res5);
+	if (req5)
+		trest_request_free(req5);
 	if (userclient)
 		trest_free (userclient);
 	if (deviceclient)
