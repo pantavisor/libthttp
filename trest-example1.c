@@ -48,6 +48,8 @@ int main (char **argv, int argc) {
 	trest_request_ptr req = 0;
 	trest_response_ptr res1 = 0;
 	trest_request_ptr req1 = 0;
+	trest_response_ptr res2 = 0;
+	trest_request_ptr req2 = 0;
 
 	printf("Creating trest userclients ...");
 	userclient = trest_new_from_userpass(DEFAULT_HOST, DEFAULT_PORT,
@@ -137,7 +139,7 @@ int main (char **argv, int argc) {
 	}
 
 
-	printf("do_json_request: userclient to create device ... \n");
+	printf("do_json_request: userclient to create device ... ");
 	req1 = trest_make_request (TREST_METHOD_POST,
 				   "/api/devices/",
 				   0, // queries
@@ -149,7 +151,7 @@ int main (char **argv, int argc) {
 	res1 = trest_do_json_request(userclient,
 				     req1);
 	if (!res1) {
-		printf (" ERROR (!res)\n");
+		printf (" ERROR (!res1)\n");
 		rv = 7;
 		goto exit;
 	}
@@ -182,6 +184,24 @@ int main (char **argv, int argc) {
 	printf(" OK\n");
 
 
+	printf("do post initial trail (device: %s) ...", device_nick);
+
+	req2 = trest_make_request (TREST_METHOD_POST,
+				   "/api/trails/",
+				   0, // queries
+				   0, // headers
+				   "{ \"mydata\": \"myvalue\" }");
+
+	res2 = trest_do_json_request(deviceclient,
+				     req2);
+	if (!res2) {
+		printf (" ERROR (!res2)\n");
+		rv = 10;
+		goto exit;
+	}
+
+	printf(" OK\n");
+
 exit:
 
 	if (device_id)
@@ -198,6 +218,10 @@ exit:
 		trest_response_free(res1);
 	if (req1)
 		trest_request_free(req1);
+	if (res2)
+		trest_response_free(res2);
+	if (req2)
+		trest_request_free(req2);
 	if (userclient)
 		trest_free (userclient);
 	if (deviceclient)
