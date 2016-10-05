@@ -339,6 +339,8 @@ trest_make_request (trest_method_enum method,
 
 	char **queries_i = queries;
 	char **headers_i = headers;
+	int headers_size;
+	int headers_len;
 
 	r->method = method;
 	r->endpoint_path = strdup(endpoint_path);
@@ -365,24 +367,27 @@ trest_make_request (trest_method_enum method,
 	}
 
 headers:
-	if (!headers_i)
-		goto exit;
-
-	int headers_size = 1;
-	int headers_len = 0;
+	headers_size = 2;
+	headers_len = 0;
 	r->headers = calloc(sizeof(char*), headers_size);
+
+	if (!headers_i)
+		goto no_headers;
 
 	// XXX: make a ptrvdup
 	while (*headers_i) {
 		r->headers[headers_len] = strdup(*headers_i);
 		headers_len++;
 		headers_i++;
-		if (headers_len >= headers_size) {
+		if (headers_len+1 >= headers_size) {
 			headers_size += 128;
 			r->headers = realloc(r->headers, sizeof(char*) * headers_size);
 		}
 	}
+
+no_headers:
 	r->headers[headers_len] = 0;
+	r->headers[headers_len+1] = 0;
 
 exit:
 	return r;
@@ -429,6 +434,23 @@ trest_do_json_request (trest_ptr client,
 	req->headers = req_in->headers;
 	if (req_in->json_body)
 		req->body_content_type = "application/json";
+
+	// XXX: this below assumes that header array has two 0 elements
+	// at the end already allocated; too horrible approach; refactor to
+	// use argz glibc extension instead for headers and queries
+	if (c->access_token) {
+		const char *autht = "Authorization: Bearer %s";
+		char **headers_i = req->headers;
+		while (*headers_i)
+			headers_i++;
+		*headers_i = malloc ((strlen(autht) + strlen (c->access_token)) * sizeof(char));
+		sprintf (*headers_i, autht, c->access_token);
+		if (DEBUG)
+			printf("Added access_token header: %s\n", *headers_i);
+		if (*++headers_i != 0)
+			printf("ERROR: ARRAY MUST BE NULL TERMINATED\n");
+	}
+
 
 	response = thttp_request_do(req);
 
