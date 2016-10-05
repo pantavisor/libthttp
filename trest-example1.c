@@ -10,7 +10,6 @@
 #define DEFAULT_USER "user1"
 #define DEFAULT_USERPASS "user1"
 #define DEFAULT_BADPASS "badpassword"
-#define DEFAULT_DEVICE "abrn:::devices:/57f41438b376a825cf000001"
 #define DEFAULT_DEVICEPASS "device1"
 
 static char*
