@@ -46,12 +46,15 @@ int main (char **argv, int argc)
 	trest_ptr badclient = 0, deviceclient = 0, userclient = 0;
 	trest_response_ptr res = 0, res1 = 0, res2 = 0, res3 = 0, res4 = 0, res5 = 0;
 	trest_request_ptr req = 0, req1 = 0, req2 = 0, req3 = 0, req4 = 0, req5 = 0;
+	const char *server_host;
+
+	server_host = getenv ("ABCI_HOST") ? getenv ("ABCI_HOST") :  DEFAULT_HOST;
 
 	printf("Creating trest userclients ...");
-	userclient = trest_new_from_userpass(DEFAULT_HOST, DEFAULT_PORT,
+	userclient = trest_new_from_userpass(server_host, DEFAULT_PORT,
 					     DEFAULT_USER, DEFAULT_USERPASS);
 
-	badclient = trest_new_from_userpass(DEFAULT_HOST, DEFAULT_PORT,
+	badclient = trest_new_from_userpass(server_host, DEFAULT_PORT,
 					    DEFAULT_USER, DEFAULT_BADPASS);
 
 
@@ -162,7 +165,7 @@ int main (char **argv, int argc)
 
 	printf("do trest_update_auth (device credentials) ...");
 
-	deviceclient = trest_new_from_userpass(DEFAULT_HOST, DEFAULT_PORT,
+	deviceclient = trest_new_from_userpass(server_host, DEFAULT_PORT,
 					       device_abrn, DEFAULT_DEVICEPASS);
 
 	if (!deviceclient) {
