@@ -176,7 +176,6 @@ int main (char **argv, int argc) {
 	printf(" OK\n");
 
 
-
 exit:
 
 	if (device_id)
@@ -185,8 +184,14 @@ exit:
 		trest_response_free(res);
 	if (req)
 		trest_request_free(req);
+	if (res1)
+		trest_response_free(res1);
+	if (req1)
+		trest_request_free(req1);
 	if (userclient)
 		trest_free (userclient);
+	if (deviceclient)
+		trest_free (deviceclient);
 	if (badclient)
 		trest_free (badclient);
 
