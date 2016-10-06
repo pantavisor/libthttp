@@ -83,15 +83,6 @@ trest_make_request (trest_method_enum method,
 		    char **headers,
 		    char *json_body);
 
-// make a blob request expecting a blob back. this request
-// takes a callback function that will be called to pump
-// the blob data stream
-trest_request_ptr
-trest_make_blob_request (trest_method_enum method,
-			 char *endpoint_path,
-			 char **queries,
-			 char *json_body);
-
 
 // execute the request.
 // XXX: later or think about:
