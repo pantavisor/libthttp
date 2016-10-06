@@ -1,5 +1,6 @@
 
 #include <arpa/inet.h>
+#include <errno.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <string.h>
@@ -17,10 +18,16 @@
 
 struct http_response_parser {
 	t_thttp_response *out;
-	size_t body_at;
-	size_t body_bufsize;
 	size_t headers_at;
 	size_t headers_bufsize;
+	size_t body_at;
+	size_t body_bufsize;
+
+	int filedownload;
+	int fd;
+
+	int file_error;
+	int file_errno;
 };
 
 static unsigned char*
@@ -117,8 +124,17 @@ static void
 _response_body(void* opaque, const char* data, int size)
 {
 	struct http_response_parser* parser = (struct http_response_parser*) opaque;
-	parser->out->body = buf_nappend (parser->out->body, &parser->body_at, data, &parser->body_bufsize, size);
-//	response->body.insert(response->body.end(), data, data + size);
+
+	if (parser->filedownload) {
+		int r;
+		r = write (parser->fd, data, size);
+		if (r < size) {
+			parser->file_error = 1;
+			parser->file_error = errno;
+		}
+	} else {
+		parser->out->body = buf_nappend (parser->out->body, &parser->body_at, data, &parser->body_bufsize, size);
+	}
 }
 
 static void
@@ -180,18 +196,16 @@ thttp_response_free (t_thttp_response* ptr)
 	free (ptr);
 }
 
-t_thttp_response*
-thttp_request_do (t_thttp_request* req)
+static int
+thttp_request_do_abstract (t_thttp_request* req, struct http_response_parser *parser)
 {
 	int ret, len, server_fd;
 	unsigned char *reqbuf = 0;
 	unsigned char resbuf[1024];
 	struct sockaddr_in server_addr;
 	struct hostent *server_host;
-	struct http_response_parser parser;
 
-	memset (&parser, 0, sizeof (parser));
-	parser.out = calloc(sizeof(t_thttp_response), 1);
+	parser->out = calloc(sizeof(t_thttp_response), 1);
 
 	if (DEBUG)
 		printf ("Connecting to tcp/%s/%4d...", req->host,
@@ -245,7 +259,7 @@ thttp_request_do (t_thttp_request* req)
 	}
 
 	struct http_roundtripper rt;
-	http_init(&rt, _http_response_funcs, &parser);
+	http_init(&rt, _http_response_funcs, parser);
 
 	fflush (stdout);
 	memset (resbuf, 0, sizeof (resbuf));
@@ -268,6 +282,10 @@ thttp_request_do (t_thttp_request* req)
 			needmore = http_data (&rt, resbuf, ret, &read);
 			ret -= read;
 			data += read;
+			if (parser->file_error) {
+				fprintf(stderr, "Error writing to file\n");
+				goto exit;
+			}
 		}
 	}
 	if (http_iserror(&rt)) {
@@ -282,11 +300,33 @@ exit_write:
 exit_connect:
 	close (server_fd);
 
-	// XXX:  fill response struct
+	return 0;
+}
 
+t_thttp_response*
+thttp_request_do (t_thttp_request *req)
+{
+	int rv;
+	struct http_response_parser parser;
+	memset (&parser, 0, sizeof (parser));
+	rv = thttp_request_do_abstract (req, &parser);
 	if (DEBUG)
 		printf("thttp parser return: %s\n", parser.out->body);
+	return parser.out;
+}
 
+t_thttp_response*
+thttp_request_do_file (t_thttp_request *req, int fd)
+{
+	t_thttp_response *r;
+	int rv;
+	struct http_response_parser parser;
+	parser.filedownload = 1;
+	parser.fd = fd;
+	memset (&parser, 0, sizeof (parser));
+	rv = thttp_request_do_abstract (req, &parser);
+	if (DEBUG)
+		printf("thttp parser file done.");
 	return parser.out;
 }
 
