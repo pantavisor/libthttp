@@ -6,6 +6,19 @@ CFLAGS := -g
 trest-example1_DEFINES := -DJSMN_PARENT_LINKS=1 -DDEBUG=$(DEBUG)
 thttp-example1_DEFINES := -DDEBUG=$(DEBUG)
 
+MBEDTLS_DIR := mbedtls-2.3.0
+MBEDTLS_LIBS := libmbedcrypto.a \
+	libmbedx509.a \
+	libmbedtls.a \
+	$(NULL)
+MBEDTLS_PROFILE := config-mini-tls1_1
+
+MBEDTLS_CFLAGS := -I$(MBEDTLS_DIR)/configs/ \
+	-I$(MBEDTLS_DIR)/include/ \
+	-DMBEDTLS_CONFIG_FILE='<$(MBEDTLS_PROFILE).h>' \
+	$(NULL)
+MBEDTLS_LDFLAGS := $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l))
+
 all: $(TARGETS)
 
 LIBTHTTP_PREREQ := \
@@ -19,15 +32,20 @@ LIBTREST_PREREQ := \
 	$(LIBTHTTP_PREREQ) \
 	trest.c trest.h \
 
-thttp-example1: $(LIBTHTTP_PREREQ) thttp-example1.c
-	$(CC) $(CFLAGS) -o $@ \
-		$(filter %.c, $^)
+$(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l)):
+	CFLAGS="-I$(PWD)/$(MBEDTLS_DIR)/configs/ -DMBEDTLS_CONFIG_FILE='<$(MBEDTLS_PROFILE).h>'" \
+		make $(MAKEFLAGS) -C $(MBEDTLS_DIR)/library $(MBEDTLS_LIBS)
+
+thttp-example1: $(LIBTHTTP_PREREQ) thttp-example1.c $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l))
+	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) -o $@ \
+		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
 trest-example1: $(LIBTREST_PREREQ) trest-example1.c
-	$(CC) $(CFLAGS) $($@_DEFINES) -o $@ \
-		$(filter %.c, $^)
+	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -o $@ \
+		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
 clean:
+	make $(MAKEFLAGS) -C $(MBEDTLS_DIR)/library clean
 	rm $(TARGETS)
 
 install:
