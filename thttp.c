@@ -321,9 +321,9 @@ thttp_request_do_file (t_thttp_request *req, int fd)
 	t_thttp_response *r;
 	int rv;
 	struct http_response_parser parser;
+	memset (&parser, 0, sizeof (parser));
 	parser.filedownload = 1;
 	parser.fd = fd;
-	memset (&parser, 0, sizeof (parser));
 	rv = thttp_request_do_abstract (req, &parser);
 	if (DEBUG)
 		printf("thttp parser file done.");

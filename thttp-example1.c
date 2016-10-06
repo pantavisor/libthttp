@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "jsmn/jsmn.h"
 #include "thttp.h"
 
@@ -100,5 +101,35 @@ again:
 
 	thttp_request_free(req);
 	thttp_response_free(res);
+
+	req = thttp_request_new_0 ();
+
+	req->method = THTTP_METHOD_POST;
+	req->proto = THTTP_PROTO_HTTP;
+	req->proto_version = THTTP_PROTO_VERSION_10;
+	req->use_tls = 0;
+	req->host = "localhost";
+	req->port = 12365;
+	req->path = "/api/auth/login";
+	req->headers = 0;
+	req->body =
+		"{"
+		"	\"username\": \"user1\","
+		"	\"password\": \"user1\""
+		"}";
+	req->body_content_type = "application/json";
+
+	int fd;
+	char name[] = "/tmp/fileXXXXXX";
+	fd = mkstemp(name);
+
+	res = thttp_request_do_file (req, fd);
+
+	close (fd);
+	printf("\nResult Retrieved in:\n%s\n", name);
+
+	thttp_request_free(req);
+	thttp_response_free(res);
+
 	return 0;
 }

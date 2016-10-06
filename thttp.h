@@ -27,7 +27,13 @@ typedef struct thttp_response {
 } t_thttp_response;
 
 
+// full sync variant for http requests
 t_thttp_response* thttp_request_do (t_thttp_request* req);
+
+// save body to file instead of saving to buffer
+// content-length will be set, but body will be null in response.
+t_thttp_response* thttp_request_do_file (t_thttp_request *req,
+					 int fd);
 
 t_thttp_request* thttp_request_new_0 ();
 void thttp_request_free (t_thttp_request* ptr);
