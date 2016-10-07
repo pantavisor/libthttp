@@ -426,7 +426,6 @@ trest_do_json_request (trest_ptr client,
 	req->method = req_in->method;
 	req->proto = THTTP_PROTO_HTTP;
 	req->proto_version = THTTP_PROTO_VERSION_10;
-	req->use_tls=0;
 	req->path = req_in->endpoint_path;
 	req->host = c->host;
 	req->port = c->port;

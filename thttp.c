@@ -171,9 +171,20 @@ static const struct http_funcs _http_response_funcs = {
 
 
 t_thttp_request*
-thttp_request_new_0 ()
+thttp_request_new_0()
 {
-	return calloc (sizeof(t_thttp_request), 1);
+	t_thttp_request *self = calloc (sizeof(t_thttp_request_tls), 1);
+	self->is_tls=0;
+
+	return (t_thttp_request*) self;
+}
+
+t_thttp_request_tls*
+thttp_request_tls_new_0()
+{
+	t_thttp_request *self = thttp_request_new_0();
+	self->is_tls=1;
+	return (t_thttp_request_tls*) self;
 }
 
 void

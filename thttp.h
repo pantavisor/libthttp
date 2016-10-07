@@ -8,14 +8,45 @@ typedef struct thttp_request {
 	t_thttp_method method;
 	t_thttp_proto proto;
 	t_thttp_proto_version proto_version;
-	int use_tls;
+
+	int is_tls;
+
 	char *host;
 	int port;
+
 	char *path;
 	char **headers;
+
 	char *body;
 	char *body_content_type;
 } t_thttp_request;
+
+// super struct for tls requests. ensure your t_thttp_request file
+// has is_tls set.
+// if you want thttp to ignore certificate problems you need to keep
+// all of the Xbufs and Xfiles fields in this struct set to 0. This
+// will fail if THTTP_DEVMODE environment is not set to product
+// mistakes in product deployments.
+typedef struct thttp_request_tls {
+	t_thttp_request parent;
+
+	// 0 terminated list of 0 terminated certificate chain bufs (multiple chains)
+	char **crtbufs;
+	// 0 terminated list of certificate chain files
+	char **crtfiles;
+
+	// 0 terminated list of 0 terminated CRL chain bufs (multiple chains)
+	char **crlbufs;
+	// 0 terminated list of certificate chain files
+	char **crlfiles;
+
+	// null terminated list of ciphersuites from mbedtls defines. if NULL
+	// the reasonable defaults of mbedtls implementation will be picked.
+        // -- this guy is untyped to avoid dependencies to clients on mbedtls headers
+        // and 
+	void *ciphersuites;
+} t_thttp_request_tls;
+
 
 typedef struct thttp_response {
 	t_thttp_method method;
@@ -36,6 +67,8 @@ t_thttp_response* thttp_request_do_file (t_thttp_request *req,
 					 int fd);
 
 t_thttp_request* thttp_request_new_0 ();
+t_thttp_request_tls* thttp_request_tls_new_0 ();
+
 void thttp_request_free (t_thttp_request* ptr);
 void thttp_response_free (t_thttp_response* ptr);
 

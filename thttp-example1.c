@@ -53,7 +53,6 @@ int main (char **argv, int argc) {
 	req->method = THTTP_METHOD_POST;
 	req->proto = THTTP_PROTO_HTTP;
 	req->proto_version = THTTP_PROTO_VERSION_10;
-	req->use_tls = 0;
 	req->host = "localhost";
 	req->port = 12365;
 	req->path = "/api/auth/login";
@@ -107,7 +106,6 @@ again:
 	req->method = THTTP_METHOD_POST;
 	req->proto = THTTP_PROTO_HTTP;
 	req->proto_version = THTTP_PROTO_VERSION_10;
-	req->use_tls = 0;
 	req->host = "localhost";
 	req->port = 12365;
 	req->path = "/api/auth/login";
