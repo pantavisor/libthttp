@@ -1,4 +1,30 @@
 
+#if !defined(MBEDTLS_CONFIG_FILE)
+#include "mbedtls/config.h"
+#else
+#include MBEDTLS_CONFIG_FILE
+#endif
+
+#if defined(MBEDTLS_PLATFORM_C)
+#include "mbedtls/platform.h"
+#else
+#include <stdio.h>
+#include <stdlib.h>
+#define mbedtls_time       time 
+#define mbedtls_time_t     time_t
+#define mbedtls_fprintf    fprintf
+#define mbedtls_printf     printf
+#endif
+
+#include "mbedtls/net.h"
+#include "mbedtls/debug.h"
+#include "mbedtls/ssl.h"
+#include "mbedtls/entropy.h"
+#include "mbedtls/ctr_drbg.h"
+#include "mbedtls/error.h"
+#include "mbedtls/certs.h"
+
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
@@ -11,6 +37,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+
 #include "thttp.h"
 #include "tinyhttp/http.h"
 
@@ -18,6 +45,7 @@
 
 struct http_response_parser {
 	t_thttp_response *out;
+
 	size_t headers_at;
 	size_t headers_bufsize;
 	size_t body_at;
@@ -207,14 +235,160 @@ thttp_response_free (t_thttp_response* ptr)
 	free (ptr);
 }
 
+struct _req_ctx_plain {
+	int server_fd;
+	struct sockaddr_in server_addr;
+	struct hostent *server_host;
+};
+
+struct _req_ctx_tls {
+	mbedtls_net_context server_fd;
+	mbedtls_entropy_context entropy;
+	mbedtls_ctr_drbg_context ctr_drbg;
+	mbedtls_ssl_context ssl;
+	mbedtls_ssl_config conf;
+	mbedtls_x509_crt cacert;
+};
+
+
+static int
+thttp_request_connect_plain (t_thttp_request* req,
+			     struct _req_ctx_plain *ctx)
+{
+	int rv = 0;
+	if ((ctx->server_host = gethostbyname (req->host)) == NULL)
+	{
+		printf ("ERROR: failed\n  ! gethostbyname failed\n\n");
+		goto exit;
+	}
+
+	if ((ctx->server_fd = socket (AF_INET, SOCK_STREAM, IPPROTO_IP)) < 0)
+	{
+		printf ("ERROR: failed\n  ! socket returned %d\n\n", ctx->server_fd);
+		goto exit;
+	}
+
+	memcpy ((void *) &ctx->server_addr.sin_addr,
+		(void *) ctx->server_host->h_addr,
+		ctx->server_host->h_length);
+
+	ctx->server_addr.sin_family = AF_INET;
+	ctx->server_addr.sin_port = htons (req->port);
+
+	if ((rv = connect ( ctx->server_fd, (struct sockaddr *) &ctx->server_addr,
+			    sizeof( ctx->server_addr ))) < 0)
+	{
+		// XXX: print out errno value here
+		printf ("ERROR: failed\n  ! connect returned %d\n\n", rv);
+		goto exit;
+	}
+
+	// SUCCESS
+	rv = 1;
+
+	if (DEBUG)
+		printf (" OK\n");
+
+exit:
+	return rv;
+
+}
+
+static int
+do_ctx_connect (t_thttp_request* req,
+		struct _req_ctx_plain *ctx_plain,
+		struct _req_ctx_tls *ctx_tls)
+{
+	if (req->is_tls) {
+		printf ("ERROR: NOT IMPLEMENTED TLS CONNECT\n");
+		return -1;
+	} 
+
+	return thttp_request_connect_plain (req, ctx_plain);
+}
+
+static int
+do_ctx_plain_write(t_thttp_request* req,
+		   struct _req_ctx_plain *ctx_plain,
+		   char *buf,
+		   int len)
+{
+	return write (ctx_plain->server_fd, buf, len);
+}
+
+static int
+do_ctx_write(t_thttp_request* req,
+	     struct _req_ctx_plain *ctx_plain,
+	     struct _req_ctx_tls *ctx_tls,
+	     char *buf,
+	     int len)
+{
+	if (req->is_tls)
+	{
+		printf("XXX: ERROR NOT IMPLEMENTED WRITE\n");
+		return -1;
+	}
+
+	return do_ctx_plain_write(req, ctx_plain, buf, len);
+}
+
+static int
+do_ctx_plain_read(t_thttp_request* req,
+		  struct _req_ctx_plain *ctx_plain,
+		  char *buf,
+		  int len)
+{
+	return read(ctx_plain->server_fd, buf, len);
+}
+
+static int
+do_ctx_read(t_thttp_request* req,
+	    struct _req_ctx_plain *ctx_plain,
+	    struct _req_ctx_tls *ctx_tls,
+	    char *buf,
+	    int len)
+{
+	if (req->is_tls)
+	{
+		printf("XXX: ERROR NOT IMPLEMENTED WRITE\n");
+		return -1;
+	}
+
+	return do_ctx_plain_read(req, ctx_plain, buf, len);
+}
+
+static int
+do_ctx_plain_close (t_thttp_request* req,
+		    struct _req_ctx_plain *ctx_plain)
+{
+	return close(ctx_plain->server_fd);
+}
+
+static int
+do_ctx_close(t_thttp_request* req,
+	    struct _req_ctx_plain *ctx_plain,
+	    struct _req_ctx_tls *ctx_tls)
+{
+	if (req->is_tls)
+	{
+		printf("XXX: ERROR NOT IMPLEMENTED CLOSE\n");
+		return -1;
+	}
+
+	return do_ctx_plain_close(req, ctx_plain);
+}
+
 static int
 thttp_request_do_abstract (t_thttp_request* req, struct http_response_parser *parser)
 {
-	int ret, len, server_fd;
+	int ret, len;
+	struct _req_ctx_plain ctx_plain;
+	struct _req_ctx_tls ctx_tls;
 	unsigned char *reqbuf = 0;
 	unsigned char resbuf[1024];
-	struct sockaddr_in server_addr;
-	struct hostent *server_host;
+
+	memset(&ctx_plain, 0, sizeof(ctx_plain));
+	memset(&ctx_tls, 0, sizeof(ctx_tls));
 
 	parser->out = calloc(sizeof(t_thttp_response), 1);
 
@@ -224,34 +398,10 @@ thttp_request_do_abstract (t_thttp_request* req, struct http_response_parser *pa
 
 	fflush (stdout);
 
-	if ((server_host = gethostbyname (req->host)) == NULL)
-	{
-		printf ("ERROR: failed\n  ! gethostbyname failed\n\n");
-		goto exit;
-	}
-
-	if ((server_fd = socket (AF_INET, SOCK_STREAM, IPPROTO_IP)) < 0)
-	{
-		printf ("ERROR: failed\n  ! socket returned %d\n\n", server_fd);
-		goto exit;
-	}
-
-	memcpy ((void *) &server_addr.sin_addr,
-		(void *) server_host->h_addr,
-		server_host->h_length);
-
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons (req->port);
-
-	if ((ret = connect ( server_fd, (struct sockaddr *) &server_addr,
-					sizeof( server_addr ))) < 0)
-	{
+	if(ret = do_ctx_connect (req, &ctx_plain, &ctx_tls) < 0) {
 		printf ("ERROR: failed\n  ! connect returned %d\n\n", ret);
-		goto exit_connect;
+	        goto exit_connect;
 	}
-
-	if (DEBUG)
-		printf (" OK\n");
 
 	if (DEBUG)
 		printf ("Write to server:\n");
@@ -262,7 +412,7 @@ thttp_request_do_abstract (t_thttp_request* req, struct http_response_parser *pa
 	if (DEBUG)
 		printf ("%s\n", reqbuf);
 
-	while ((ret = write (server_fd, reqbuf, len)) <= 0) {
+	while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, reqbuf, len)) <= 0) {
 		if (ret != 0) {
 			printf ("failed\n  ! write returned %d\n\n", ret);
 			goto exit_write;
@@ -279,7 +429,7 @@ thttp_request_do_abstract (t_thttp_request* req, struct http_response_parser *pa
 	while (needmore) {
 		unsigned char* data = resbuf;
 		len = sizeof (resbuf) - 1;
-		ret = read(server_fd, resbuf, len);
+		ret = do_ctx_read(req, &ctx_plain, &ctx_tls, resbuf, len);
 
 		if (ret <= 0) {
 			printf ("\n---FINISHED or FAILED: ssl_read returned %d\n\n", ret);
@@ -309,7 +459,7 @@ exit:
 exit_write:
 	free (reqbuf);
 exit_connect:
-	close (server_fd);
+	do_ctx_close(req, &ctx_plain, &ctx_tls);
 
 	return 0;
 }
