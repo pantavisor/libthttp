@@ -23,6 +23,7 @@
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/error.h"
 #include "mbedtls/certs.h"
+#include "mbedtls/x509_crt.h"
 
 
 #include <arpa/inet.h>
@@ -42,6 +43,7 @@
 #include "tinyhttp/http.h"
 
 #define BUF_BLOCKSIZE 1024
+#define ENV_CACHAIN "THTTP_CAFILE" // XXX: this has to go away; example should put the file in request
 
 struct http_response_parser {
 	t_thttp_response *out;
@@ -294,13 +296,171 @@ exit:
 
 }
 
+static void my_debug (void *ctx, int level,
+		      const char *file, int line,
+		      const char *str)
+{
+	((void) level);
+
+	mbedtls_fprintf((FILE *) ctx, "%s:%04d: %s", file, line, str);
+	fflush((FILE *) ctx);
+}
+
 
 static int
 do_ctx_connect_tls (t_thttp_request *req,
-		    struct _req_ctx_tls *ctx_tls)
+		    struct _req_ctx_tls *ctx)
 {
-	printf ("ERROR: NOT IMPLEMENTED TLS CONNECT\n");
-	return -1;
+	const char *pers = "thttp_client";
+	int ret = 0;
+	char portc[16];
+	uint32_t flags;
+#if defined(MBEDTLS_DEBUG_C)
+	mbedtls_debug_set_threshold( DEBUG_LEVEL );
+#endif
+
+	/*
+	 * 0. Initialize the RNG and the session data
+	 */
+	mbedtls_net_init(&ctx->server_fd);
+	mbedtls_ssl_init(&ctx->ssl);
+	mbedtls_ssl_config_init(&ctx->conf);
+	mbedtls_x509_crt_init(&ctx->cacert);
+	mbedtls_ctr_drbg_init(&ctx->ctr_drbg);
+
+	mbedtls_printf("\n  . Seeding the random number generator...");
+	fflush(stdout);
+
+	mbedtls_entropy_init(&ctx->entropy);
+	if( ( ret = mbedtls_ctr_drbg_seed( &ctx->ctr_drbg, mbedtls_entropy_func, &ctx->entropy,
+					   (const unsigned char *) pers,
+					   strlen( pers ) ) ) != 0 )
+	{
+		mbedtls_printf(" failed\n  ! mbedtls_ctr_drbg_seed returned %d\n", ret);
+		goto exit;
+	}
+
+	mbedtls_printf(" ok\n");
+
+	/*
+	 * 0. Initialize certificates
+	 */
+	mbedtls_printf("  . Loading the CA root certificate ...");
+	fflush(stdout);
+
+	// XXX: make it use our own certs
+	ret = mbedtls_x509_crt_parse( &ctx->cacert, (const unsigned char *) mbedtls_test_cas_pem,
+				      mbedtls_test_cas_pem_len );
+	if( ret < 0 )
+	{
+		mbedtls_printf( " failed\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n", -ret );
+		goto exit;
+	}
+	mbedtls_printf( " ok (%d skipped)\n", ret );
+
+	/* XXX: dopnt use the env here, but rather in example and set the cert file in request obj */
+	if (getenv(ENV_CACHAIN)) {
+		mbedtls_printf("  . Loading the CA root certificate from file: %s ...",
+			       getenv(ENV_CACHAIN));
+		fflush(stdout);
+
+		ret = mbedtls_x509_crt_parse_file(&ctx->cacert, getenv(ENV_CACHAIN));
+		if( ret < 0 )
+		{
+			mbedtls_printf( " failed\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n",
+					-ret );
+			goto exit;
+		}
+	}
+	mbedtls_printf(" ok\n");
+
+
+	/*
+	 * 1. Start the connection
+	 */
+	mbedtls_printf( "  . Connecting to tcp/%s/%d...", req->host, req->port );
+	fflush( stdout );
+
+	sprintf(portc,"%d", req->port);
+	if( ( ret = mbedtls_net_connect( &ctx->server_fd, req->host,
+					 portc, MBEDTLS_NET_PROTO_TCP ) ) != 0 )
+	{
+		mbedtls_printf( " failed\n  ! mbedtls_net_connect returned %d\n\n", ret );
+		goto exit;
+	}
+
+	mbedtls_printf( " ok\n" );
+
+	mbedtls_printf( "  . Setting up the SSL/TLS structure..." );
+	fflush( stdout );
+
+	if( ( ret = mbedtls_ssl_config_defaults( &ctx->conf,
+						 MBEDTLS_SSL_IS_CLIENT,
+						 MBEDTLS_SSL_TRANSPORT_STREAM,
+						 MBEDTLS_SSL_PRESET_DEFAULT ) ) != 0 )
+	{
+		mbedtls_printf( " failed\n  ! mbedtls_ssl_config_defaults returned %d\n\n", ret );
+		goto exit;
+	}
+
+	mbedtls_printf( " ok\n" );
+
+	/* XXX: FIXME
+	 * OPTIONAL is not optimal for security,
+	 * but makes interop easier in this simplified example
+	 */
+	mbedtls_ssl_conf_authmode( &ctx->conf, MBEDTLS_SSL_VERIFY_OPTIONAL );
+	mbedtls_ssl_conf_ca_chain( &ctx->conf, &ctx->cacert, NULL );
+	mbedtls_ssl_conf_rng( &ctx->conf, mbedtls_ctr_drbg_random, &ctx->ctr_drbg );
+	mbedtls_ssl_conf_dbg( &ctx->conf, my_debug, stdout );
+
+	if ((ret = mbedtls_ssl_setup( &ctx->ssl, &ctx->conf)) != 0)
+	{
+		mbedtls_printf( " failed\n  ! mbedtls_ssl_setup returned %d\n\n", ret );
+		goto exit;
+	}
+
+	if ((ret = mbedtls_ssl_set_hostname( &ctx->ssl, "localhost" )) != 0)
+	{
+		mbedtls_printf( " failed\n  ! mbedtls_ssl_set_hostname returned %d\n\n", ret );
+		goto exit;
+	}
+
+	mbedtls_ssl_set_bio (&ctx->ssl, &ctx->server_fd, mbedtls_net_send, mbedtls_net_recv, NULL);
+
+	/*
+	 * 4. Handshake
+	 */
+	mbedtls_printf( "  . Performing the SSL/TLS handshake..." );
+	fflush( stdout );
+
+	while( ( ret = mbedtls_ssl_handshake(&ctx->ssl)) != 0 )
+	{
+		if( ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE )
+		{
+			mbedtls_printf( " failed\n  ! mbedtls_ssl_handshake returned -0x%x\n\n", -ret );
+			goto exit;
+		}
+	}
+
+	mbedtls_printf( " ok\n" );
+
+	/*
+	 * 5. Verify the server certificate
+	 */
+	mbedtls_printf( "  . Verifying peer X.509 certificate..." );
+
+	/* In real life, we probably want to bail out when ret != 0 */
+	if((flags = mbedtls_ssl_get_verify_result(&ctx->ssl))!= 0 ) {
+		char vrfy_buf[512];
+		mbedtls_printf( " failed\n" );
+		mbedtls_x509_crt_verify_info(vrfy_buf, sizeof( vrfy_buf ), "  ! ", flags);
+		mbedtls_printf("%s\n", vrfy_buf);
+	} else {
+		mbedtls_printf( " ok\n" );
+	}
+exit:
+	return ret;
 }
 
 static int
@@ -326,12 +486,21 @@ do_ctx_plain_write(t_thttp_request* req,
 
 static int
 do_ctx_tls_write(t_thttp_request* req,
-		 struct _req_ctx_tls *ctx_tls,
+		 struct _req_ctx_tls *ctx,
 		 char *buf,
 		 int len)
 {
-	printf("XXX: ERROR NOT IMPLEMENTED WRITE\n");
-	return -1;
+	int ret;
+	while((ret = mbedtls_ssl_write( &ctx->ssl, buf, len)) <= 0) {
+		if( ret != MBEDTLS_ERR_SSL_WANT_READ &&
+		    ret != MBEDTLS_ERR_SSL_WANT_WRITE )
+		{
+			mbedtls_printf( " failed\n  ! mbedtls_ssl_write returned %d\n\n", ret );
+			goto exit;
+		}
+	}
+exit:
+	return ret;
 }
 
 static int
@@ -357,15 +526,44 @@ do_ctx_plain_read(t_thttp_request* req,
 {
 	return read(ctx_plain->server_fd, buf, len);
 }
-
 static int
 do_ctx_tls_read(t_thttp_request* req,
-		struct _req_ctx_tls *ctx_tls,
+		struct _req_ctx_tls *ctx,
 		char *buf,
 		int len)
 {
-	printf("XXX: ERROR NOT IMPLEMENTED WRITE\n");
-	return -1;
+	int ret = -1;
+
+	if(DEBUG)
+		mbedtls_printf( "  < Read from server:" );
+	fflush(stdout);
+
+	len = sizeof (buf) - 1;
+	memset(buf, 0, sizeof(buf));
+	ret = mbedtls_ssl_read(&ctx->ssl, buf, len);
+
+	if(ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE)
+		return -2; // XXX: make proper enum or something for AGAIN
+
+	if(ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
+		mbedtls_printf("failed\n  ! mbedtls_ssl_read failed with MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY\n\n");
+		return -1;
+	}
+
+	if(ret < 0) {
+		mbedtls_printf("failed\n  ! mbedtls_ssl_read returned %d\n\n", ret);
+		return -1;
+	}
+
+	if(ret == 0) {
+		if (DEBUG)
+			mbedtls_printf("\n\nEOF\n\n");
+	}
+
+	if (DEBUG)
+		mbedtls_printf("%d bytes read\n\n%s", len, (char *) buf);
+
+	return ret;
 }
 
 static int
@@ -375,8 +573,7 @@ do_ctx_read(t_thttp_request* req,
 	    char *buf,
 	    int len)
 {
-	if (req->is_tls)
-	{
+	if (req->is_tls) {
 		return do_ctx_tls_read(req, ctx_tls, buf, len);
 	}
 
@@ -392,10 +589,17 @@ do_ctx_plain_close (t_thttp_request* req,
 
 static int
 do_ctx_tls_close (t_thttp_request* req,
-		  struct _req_ctx_tls *ctx_tls)
+		  struct _req_ctx_tls *ctx)
 {
-	printf("XXX: ERROR NOT IMPLEMENTED CLOSE\n");
-	return -1;
+	mbedtls_ssl_close_notify(&ctx->ssl);
+	mbedtls_net_free( &ctx->server_fd );
+	mbedtls_x509_crt_free( &ctx->cacert );
+	mbedtls_ssl_free( &ctx->ssl );
+	mbedtls_ssl_config_free( &ctx->conf );
+	mbedtls_ctr_drbg_free( &ctx->ctr_drbg );
+	mbedtls_entropy_free( &ctx->entropy );
+
+	return 0;
 }
 
 static int
@@ -403,8 +607,7 @@ do_ctx_close(t_thttp_request* req,
 	    struct _req_ctx_plain *ctx_plain,
 	    struct _req_ctx_tls *ctx_tls)
 {
-	if (req->is_tls)
-	{
+	if (req->is_tls) {
 		return do_ctx_tls_close(req, ctx_tls);
 	}
 
@@ -426,21 +629,22 @@ thttp_request_do_abstract (t_thttp_request* req, struct http_response_parser *pa
 	parser->out = calloc(sizeof(t_thttp_response), 1);
 
 	if (DEBUG)
-		printf ("Connecting to tcp/%s/%4d...", req->host,
-			req->port);
+		printf("Connecting to tcp/%s/%4d...", req->host,
+		       req->port);
 
 	fflush (stdout);
 
-	if(ret = do_ctx_connect (req, &ctx_plain, &ctx_tls) < 0) {
+	if(ret = do_ctx_connect(req, &ctx_plain, &ctx_tls) < 0) {
 		printf ("ERROR: failed\n  ! connect returned %d\n\n", ret);
 		goto exit_connect;
 	}
 
 	if (DEBUG)
 		printf ("Write to server:\n");
+
 	fflush (stdout);
 
-	len = make_http_req (req, &reqbuf);
+	len = make_http_req(req, &reqbuf);
 
 	if (DEBUG)
 		printf ("%s\n", reqbuf);
@@ -455,34 +659,34 @@ thttp_request_do_abstract (t_thttp_request* req, struct http_response_parser *pa
 	struct http_roundtripper rt;
 	http_init(&rt, _http_response_funcs, parser);
 
-	fflush (stdout);
-	memset (resbuf, 0, sizeof (resbuf));
+	fflush(stdout);
+	memset(resbuf, 0, sizeof(resbuf));
 
 	int needmore = 1;
 	while (needmore) {
 		unsigned char* data = resbuf;
-		len = sizeof (resbuf) - 1;
+		len = sizeof(resbuf) - 1;
 		ret = do_ctx_read(req, &ctx_plain, &ctx_tls, resbuf, len);
 
-		if (ret <= 0) {
+		if(ret <= 0) {
 			printf ("\n---FINISHED or FAILED: ssl_read returned %d\n\n", ret);
 			break;
 		}
 
 		len = ret;
 
-		while (needmore && ret) {
+		while(needmore && ret) {
 			int read;
-			needmore = http_data (&rt, resbuf, ret, &read);
+			needmore = http_data(&rt, resbuf, ret, &read);
 			ret -= read;
 			data += read;
-			if (parser->file_error) {
+			if(parser->file_error) {
 				fprintf(stderr, "Error writing to file\n");
 				goto exit;
 			}
 		}
 	}
-	if (http_iserror(&rt)) {
+	if(http_iserror(&rt)) {
 		fprintf(stderr, "Error parsing data\n");
 		goto exit;
 	}
@@ -804,6 +1008,5 @@ thttp_method_to_string (t_thttp_proto proto)
 	case THTTP_METHOD_OPTIONS:
 		return "OPTIONS";
 	}
-
 	return "UNKNOWN";
 }
