@@ -45,8 +45,8 @@ trest-example1: $(LIBTREST_PREREQ) trest-example1.c
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
 clean:
-	make $(MAKEFLAGS) -C $(MBEDTLS_DIR)/library clean
-	rm $(TARGETS)
+	make -C $(MBEDTLS_DIR)/library clean $(MAKEFLAGS)
+	rm -f $(TARGETS)
 
 install:
 	install -d $(DESTDIR)$(PREFIX)/bin/ 
