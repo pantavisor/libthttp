@@ -34,7 +34,7 @@ LIBTREST_PREREQ := \
 
 $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l)):
 	CFLAGS="-I$(PWD)/$(MBEDTLS_DIR)/configs/ -DMBEDTLS_CONFIG_FILE='<$(MBEDTLS_PROFILE).h>'" \
-		make $(MAKEFLAGS) -C $(MBEDTLS_DIR)/library $(MBEDTLS_LIBS)
+		make -C $(MBEDTLS_DIR)/library $(MAKEFLAGS) $(MBEDTLS_LIBS)
 
 thttp-example1: $(LIBTHTTP_PREREQ) thttp-example1.c $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l))
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) -o $@ \
