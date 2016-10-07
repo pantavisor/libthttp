@@ -53,6 +53,12 @@ trest_new_from_userpass(const char* host, int port,
 			const char *user,
 			const char *pass);
 
+trest_ptr
+trest_new_tls_from_userpass(const char* host, int port,
+			    const char *user,
+			    const char *pass,
+			    const char **ca_files);
+
 void
 trest_free (trest_ptr ptr);
 

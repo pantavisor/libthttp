@@ -30,6 +30,9 @@ struct trest {
 	char **credentials;
 	char *access_token;
 	char *refresh_token;
+
+	int is_tls;
+	char **tls_cafiles;
 };
 
 struct trest_request {
@@ -233,6 +236,32 @@ trest_new_from_userpass(const char* host, int port,
 	return (trest_ptr) client;
 }
 
+trest_ptr
+trest_new_tls_from_userpass(const char* host, int port,
+			    const char *user,
+			    const char *pass,
+			    const char **cafiles)
+{
+	struct trest* client = (struct trest*)
+		trest_new_from_userpass(host, port, user, pass);
+
+	const char **ci = cafiles;
+	client->is_tls = 1;
+
+	if(ci) {
+		int c=0;
+		while (*ci) {
+			c++;
+			ci++;
+		}
+
+		client->tls_cafiles = malloc (sizeof(char*) * (c+1));
+		memcpy (client->tls_cafiles, cafiles, c+1);
+	}
+
+	return (trest_ptr) client;
+}
+
 void
 trest_free (trest_ptr ptr)
 {
@@ -247,6 +276,8 @@ trest_free (trest_ptr ptr)
 		free(client->access_token);
 	if (client->refresh_token)
 		free(client->refresh_token);
+	if (client->tls_cafiles)
+		free(client->tls_cafiles);
 	free(client->credentials);
 	free(client->host);
 	free (ptr);
@@ -416,12 +447,19 @@ trest_do_json_request (trest_ptr client,
 {
 
 	t_thttp_response *response;
-	t_thttp_request *req = thttp_request_new_0();
+	t_thttp_request *req;
 	trest_response_t *res = calloc (sizeof(trest_response_t),1);
 	struct trest_request *req_in = (struct trest_request*) request;
 	struct trest *c = (struct trest*) client;
 	jsmntok_t *tokv;
 	int tokc;
+
+	if (!c->is_tls) {
+		req = thttp_request_new_0();
+	} else {
+		req = (t_thttp_request*) thttp_request_tls_new_0();
+		((t_thttp_request_tls*)req)->crtfiles = c->tls_cafiles;
+	}
 
 	req->method = req_in->method;
 	req->proto = THTTP_PROTO_HTTP;

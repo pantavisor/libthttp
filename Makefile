@@ -1,9 +1,11 @@
-TARGETS = thttp-example1 thttp-example1-tls trest-example1
+TARGETS = thttp-example1 thttp-example1-tls trest-example1-tls
 
 DEBUG := 0
 CFLAGS := -g 
 
 trest-example1_DEFINES := -DJSMN_PARENT_LINKS=1 -DDEBUG=$(DEBUG)
+trest-example1-tls_DEFINES := -DJSMN_PARENT_LINKS=1 -DDEBUG=$(DEBUG)
+
 thttp-example1_DEFINES := -DDEBUG=$(DEBUG)
 thttp-example1-tls_DEFINES := -DDEBUG=$(DEBUG)
 
@@ -47,6 +49,10 @@ thttp-example1-tls: $(LIBTHTTP_PREREQ) thttp-example1-tls.c $(foreach l, $(MBEDT
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
 trest-example1: $(LIBTREST_PREREQ) trest-example1.c
+	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -o $@ \
+		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
+
+trest-example1-tls: $(LIBTREST_PREREQ) trest-example1-tls.c
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -o $@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
