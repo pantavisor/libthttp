@@ -1,10 +1,11 @@
-TARGETS = thttp-example1 trest-example1
+TARGETS = thttp-example1 thttp-example1-tls trest-example1
 
 DEBUG := 0
 CFLAGS := -g 
 
 trest-example1_DEFINES := -DJSMN_PARENT_LINKS=1 -DDEBUG=$(DEBUG)
 thttp-example1_DEFINES := -DDEBUG=$(DEBUG)
+thttp-example1-tls_DEFINES := -DDEBUG=$(DEBUG)
 
 MBEDTLS_DIR := mbedtls-2.3.0
 MBEDTLS_LIBS :=  \
@@ -38,6 +39,10 @@ $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l)):
 		make -C $(MBEDTLS_DIR)/library $(MAKEFLAGS) $(MBEDTLS_LIBS)
 
 thttp-example1: $(LIBTHTTP_PREREQ) thttp-example1.c $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l))
+	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) -o $@ \
+		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
+
+thttp-example1-tls: $(LIBTHTTP_PREREQ) thttp-example1-tls.c $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l))
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) -o $@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
