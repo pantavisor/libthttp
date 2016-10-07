@@ -10,7 +10,7 @@
 #else
 #include <stdio.h>
 #include <stdlib.h>
-#define mbedtls_time       time 
+#define mbedtls_time       time
 #define mbedtls_time_t     time_t
 #define mbedtls_fprintf    fprintf
 #define mbedtls_printf     printf
@@ -294,15 +294,23 @@ exit:
 
 }
 
+
+static int
+do_ctx_connect_tls (t_thttp_request *req,
+		    struct _req_ctx_tls *ctx_tls)
+{
+	printf ("ERROR: NOT IMPLEMENTED TLS CONNECT\n");
+	return -1;
+}
+
 static int
 do_ctx_connect (t_thttp_request* req,
 		struct _req_ctx_plain *ctx_plain,
 		struct _req_ctx_tls *ctx_tls)
 {
 	if (req->is_tls) {
-		printf ("ERROR: NOT IMPLEMENTED TLS CONNECT\n");
-		return -1;
-	} 
+		return do_ctx_connect_tls(req, ctx_tls);
+	}
 
 	return thttp_request_connect_plain (req, ctx_plain);
 }
@@ -317,6 +325,16 @@ do_ctx_plain_write(t_thttp_request* req,
 }
 
 static int
+do_ctx_tls_write(t_thttp_request* req,
+		 struct _req_ctx_tls *ctx_tls,
+		 char *buf,
+		 int len)
+{
+	printf("XXX: ERROR NOT IMPLEMENTED WRITE\n");
+	return -1;
+}
+
+static int
 do_ctx_write(t_thttp_request* req,
 	     struct _req_ctx_plain *ctx_plain,
 	     struct _req_ctx_tls *ctx_tls,
@@ -325,8 +343,7 @@ do_ctx_write(t_thttp_request* req,
 {
 	if (req->is_tls)
 	{
-		printf("XXX: ERROR NOT IMPLEMENTED WRITE\n");
-		return -1;
+		return do_ctx_tls_write(req, ctx_tls, buf, len);
 	}
 
 	return do_ctx_plain_write(req, ctx_plain, buf, len);
@@ -342,6 +359,16 @@ do_ctx_plain_read(t_thttp_request* req,
 }
 
 static int
+do_ctx_tls_read(t_thttp_request* req,
+		struct _req_ctx_tls *ctx_tls,
+		char *buf,
+		int len)
+{
+	printf("XXX: ERROR NOT IMPLEMENTED WRITE\n");
+	return -1;
+}
+
+static int
 do_ctx_read(t_thttp_request* req,
 	    struct _req_ctx_plain *ctx_plain,
 	    struct _req_ctx_tls *ctx_tls,
@@ -350,8 +377,7 @@ do_ctx_read(t_thttp_request* req,
 {
 	if (req->is_tls)
 	{
-		printf("XXX: ERROR NOT IMPLEMENTED WRITE\n");
-		return -1;
+		return do_ctx_tls_read(req, ctx_tls, buf, len);
 	}
 
 	return do_ctx_plain_read(req, ctx_plain, buf, len);
@@ -365,14 +391,21 @@ do_ctx_plain_close (t_thttp_request* req,
 }
 
 static int
+do_ctx_tls_close (t_thttp_request* req,
+		  struct _req_ctx_tls *ctx_tls)
+{
+	printf("XXX: ERROR NOT IMPLEMENTED CLOSE\n");
+	return -1;
+}
+
+static int
 do_ctx_close(t_thttp_request* req,
 	    struct _req_ctx_plain *ctx_plain,
 	    struct _req_ctx_tls *ctx_tls)
 {
 	if (req->is_tls)
 	{
-		printf("XXX: ERROR NOT IMPLEMENTED CLOSE\n");
-		return -1;
+		return do_ctx_tls_close(req, ctx_tls);
 	}
 
 	return do_ctx_plain_close(req, ctx_plain);
@@ -400,7 +433,7 @@ thttp_request_do_abstract (t_thttp_request* req, struct http_response_parser *pa
 
 	if(ret = do_ctx_connect (req, &ctx_plain, &ctx_tls) < 0) {
 		printf ("ERROR: failed\n  ! connect returned %d\n\n", ret);
-	        goto exit_connect;
+		goto exit_connect;
 	}
 
 	if (DEBUG)
