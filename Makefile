@@ -7,9 +7,10 @@ trest-example1_DEFINES := -DJSMN_PARENT_LINKS=1 -DDEBUG=$(DEBUG)
 thttp-example1_DEFINES := -DDEBUG=$(DEBUG)
 
 MBEDTLS_DIR := mbedtls-2.3.0
-MBEDTLS_LIBS := libmbedcrypto.a \
-	libmbedx509.a \
+MBEDTLS_LIBS :=  \
 	libmbedtls.a \
+	libmbedx509.a \
+	libmbedcrypto.a \
 	$(NULL)
 MBEDTLS_PROFILE := config-mini-tls1_1
 
