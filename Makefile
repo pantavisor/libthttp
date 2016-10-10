@@ -1,4 +1,4 @@
-TARGETS = thttp-example1 thttp-example1-tls trest-example1-tls
+TARGETS = thttp-example1 thttp-example1-tls trest-example1 trest-example1-tls
 
 DEBUG := 0
 CFLAGS := -g 
