@@ -5,9 +5,9 @@
 #endif
 
 typedef struct thttp_request {
-	t_thttp_method method;
-	t_thttp_proto proto;
-	t_thttp_proto_version proto_version;
+	thttp_method_t method;
+	thttp_proto_t proto;
+	thttp_proto_version_t proto_version;
 
 	int is_tls;
 
@@ -19,16 +19,16 @@ typedef struct thttp_request {
 
 	char *body;
 	char *body_content_type;
-} t_thttp_request;
+} thttp_request_t;
 
-// super struct for tls requests. ensure your t_thttp_request file
+// super struct for tls requests. ensure your thttp_request_t file
 // has is_tls set.
 // if you want thttp to ignore certificate problems you need to keep
 // all of the Xbufs and Xfiles fields in this struct set to 0. This
 // will fail if THTTP_DEVMODE environment is not set to product
 // mistakes in product deployments.
 typedef struct thttp_request_tls {
-	t_thttp_request parent;
+	thttp_request_t parent;
 
 	// 0 terminated list of 0 terminated certificate chain bufs (multiple chains)
 	char **crtbufs;
@@ -45,44 +45,44 @@ typedef struct thttp_request_tls {
         // -- this guy is untyped to avoid dependencies to clients on mbedtls headers
         // and 
 	void *ciphersuites;
-} t_thttp_request_tls;
+} thttp_request_tls_t;
 
 
 typedef struct thttp_response {
-	t_thttp_method method;
-	t_thttp_proto proto;
-	t_thttp_proto_version proto_version;
+	thttp_method_t method;
+	thttp_proto_t proto;
+	thttp_proto_version_t proto_version;
 	char **headers;
 	char *body;
-	t_thttp_status code;
-} t_thttp_response;
+	thttp_status_t code;
+} thttp_response_t;
 
 
 // full sync variant for http requests
-t_thttp_response* thttp_request_do (t_thttp_request* req);
+thttp_response_t* thttp_request_do (thttp_request_t* req);
 
 // save body to file instead of saving to buffer
 // content-length will be set, but body will be null in response.
-t_thttp_response* thttp_request_do_file (t_thttp_request *req,
+thttp_response_t* thttp_request_do_file (thttp_request_t *req,
 					 int fd);
 
-t_thttp_request* thttp_request_new_0 ();
-t_thttp_request_tls* thttp_request_tls_new_0 ();
+thttp_request_t* thttp_request_new_0 ();
+thttp_request_tls_t* thttp_request_tls_new_0 ();
 
-void thttp_request_free (t_thttp_request* ptr);
-void thttp_response_free (t_thttp_response* ptr);
+void thttp_request_free (thttp_request_t* ptr);
+void thttp_response_free (thttp_response_t* ptr);
 
-t_thttp_status thttp_string_to_status (char *string);
-const char* thttp_status_to_string (t_thttp_status status);
+thttp_status_t thttp_string_to_status (char *string);
+const char* thttp_status_to_string (thttp_status_t status);
 
-t_thttp_proto thttp_string_to_proto (char *string);
-const char* thttp_proto_to_string (t_thttp_proto proto);
+thttp_proto_t thttp_string_to_proto (char *string);
+const char* thttp_proto_to_string (thttp_proto_t proto);
 
-t_thttp_proto_version thttp_string_to_proto_version (char* string);
-const char* thttp_proto_version_to_string (t_thttp_proto_version proto);
+thttp_proto_version_t thttp_string_to_proto_version (char* string);
+const char* thttp_proto_version_to_string (thttp_proto_version_t proto);
 
-t_thttp_method
+thttp_method_t
 thttp_string_to_method (char *string);
 
 const char*
-thttp_method_to_string (t_thttp_proto proto);
+thttp_method_to_string (thttp_proto_t proto);

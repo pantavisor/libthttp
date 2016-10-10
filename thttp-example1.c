@@ -46,8 +46,8 @@ dump_json (const char *js, jsmntok_t *t, size_t count, int indent) {
 
 int main (char **argv, int argc) {
 
-	t_thttp_request* req = thttp_request_new_0 ();
-	t_thttp_response* res = 0;
+	thttp_request_t* req = thttp_request_new_0 ();
+	thttp_response_t* res = 0;
 	int r;
 
 	req->method = THTTP_METHOD_POST;

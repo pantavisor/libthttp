@@ -8,18 +8,18 @@ typedef enum thttp_method {
 	THTTP_METHOD_HEAD,
 	THTTP_METHOD_OPTIONS,
 	THTTP_METHOD_UNKNOWN = 1000000,
-} t_thttp_method;
+} thttp_method_t;
 
 typedef enum thttp_proto {
 	THTTP_PROTO_HTTP = 1,
 	THTTP_PROTO_UNKNOWN = 1000000,
-} t_thttp_proto;
+} thttp_proto_t;
 
 typedef enum thttp_proto_version {
 	THTTP_PROTO_VERSION_10 = 1,
 	THTTP_PROTO_VERSION_11,
 	THTTP_PROTO_VERSION_UNKNOWN = 1000000,
-} t_thttp_proto_version;
+} thttp_proto_version_t;
 
 typedef enum thttp_status {
 	THTTP_STATUS_CONTINUE = 100,
@@ -80,4 +80,4 @@ typedef enum thttp_status {
 	THTTP_STATUS_BANDWIDTH_LIMIT_EXCEEDED = 509,
 	THTTP_STATUS_NOT_EXTENDED = 510,
 	THTTP_STATUS_UNKNOWN = 10000000
-} t_thttp_status;
+} thttp_status_t;

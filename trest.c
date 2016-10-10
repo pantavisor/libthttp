@@ -37,7 +37,7 @@ struct trest {
 
 struct trest_request {
 	enum trest_rtype type;
-	t_thttp_method method;
+	thttp_method_t method;
 
 	char *endpoint_path;
 	char **queries;
@@ -446,8 +446,8 @@ trest_do_json_request (trest_ptr client,
 		       trest_request_ptr request)
 {
 
-	t_thttp_response *response;
-	t_thttp_request *req;
+	thttp_response_t *response;
+	thttp_request_t *req;
 	trest_response_t *res = calloc (sizeof(trest_response_t),1);
 	struct trest_request *req_in = (struct trest_request*) request;
 	struct trest *c = (struct trest*) client;
@@ -457,8 +457,8 @@ trest_do_json_request (trest_ptr client,
 	if (!c->is_tls) {
 		req = thttp_request_new_0();
 	} else {
-		req = (t_thttp_request*) thttp_request_tls_new_0();
-		((t_thttp_request_tls*)req)->crtfiles = c->tls_cafiles;
+		req = (thttp_request_t*) thttp_request_tls_new_0();
+		((thttp_request_tls_t*)req)->crtfiles = c->tls_cafiles;
 	}
 
 	req->method = req_in->method;

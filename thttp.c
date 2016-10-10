@@ -46,7 +46,7 @@
 #define ENV_CACHAIN "THTTP_CAFILE" // XXX: this has to go away; example should put the file in request
 
 struct http_response_parser {
-	t_thttp_response *out;
+	thttp_response_t *out;
 
 	size_t headers_at;
 	size_t headers_bufsize;
@@ -90,7 +90,7 @@ buf_append_int(unsigned char *buf, size_t *at, int append, size_t *bufsize)
 }
 
 static size_t
-make_http_req (t_thttp_request *req, unsigned char **buf)
+make_http_req (thttp_request_t *req, unsigned char **buf)
 {
 	size_t bufsize = BUF_BLOCKSIZE * sizeof(unsigned char);
 	size_t at = 0;
@@ -200,31 +200,31 @@ static const struct http_funcs _http_response_funcs = {
 };
 
 
-t_thttp_request*
+thttp_request_t*
 thttp_request_new_0()
 {
-	t_thttp_request *self = calloc (sizeof(t_thttp_request_tls), 1);
+	thttp_request_t *self = calloc (sizeof(thttp_request_tls_t), 1);
 	self->is_tls=0;
 
-	return (t_thttp_request*) self;
+	return (thttp_request_t*) self;
 }
 
-t_thttp_request_tls*
+thttp_request_tls_t*
 thttp_request_tls_new_0()
 {
-	t_thttp_request *self = thttp_request_new_0();
+	thttp_request_t *self = thttp_request_new_0();
 	self->is_tls=1;
-	return (t_thttp_request_tls*) self;
+	return (thttp_request_tls_t*) self;
 }
 
 void
-thttp_request_free (t_thttp_request* ptr)
+thttp_request_free (thttp_request_t* ptr)
 {
 	free (ptr);
 }
 
 void
-thttp_response_free (t_thttp_response* ptr)
+thttp_response_free (thttp_response_t* ptr)
 {
 	char **headers_i = ptr->headers;
 
@@ -254,7 +254,7 @@ struct _req_ctx_tls {
 
 
 static int
-thttp_request_connect_plain (t_thttp_request* req,
+thttp_request_connect_plain (thttp_request_t* req,
 			     struct _req_ctx_plain *ctx)
 {
 	int rv = 0;
@@ -308,7 +308,7 @@ static void my_debug (void *ctx, int level,
 
 
 static int
-do_ctx_connect_tls (t_thttp_request *req,
+do_ctx_connect_tls (thttp_request_t *req,
 		    struct _req_ctx_tls *ctx)
 {
 	const char *pers = "thttp_client";
@@ -464,7 +464,7 @@ exit:
 }
 
 static int
-do_ctx_connect (t_thttp_request* req,
+do_ctx_connect (thttp_request_t* req,
 		struct _req_ctx_plain *ctx_plain,
 		struct _req_ctx_tls *ctx_tls)
 {
@@ -476,7 +476,7 @@ do_ctx_connect (t_thttp_request* req,
 }
 
 static int
-do_ctx_plain_write(t_thttp_request* req,
+do_ctx_plain_write(thttp_request_t* req,
 		   struct _req_ctx_plain *ctx_plain,
 		   char *buf,
 		   int len)
@@ -485,7 +485,7 @@ do_ctx_plain_write(t_thttp_request* req,
 }
 
 static int
-do_ctx_tls_write(t_thttp_request* req,
+do_ctx_tls_write(thttp_request_t* req,
 		 struct _req_ctx_tls *ctx,
 		 char *buf,
 		 int len)
@@ -504,7 +504,7 @@ exit:
 }
 
 static int
-do_ctx_write(t_thttp_request* req,
+do_ctx_write(thttp_request_t* req,
 	     struct _req_ctx_plain *ctx_plain,
 	     struct _req_ctx_tls *ctx_tls,
 	     char *buf,
@@ -519,7 +519,7 @@ do_ctx_write(t_thttp_request* req,
 }
 
 static int
-do_ctx_plain_read(t_thttp_request* req,
+do_ctx_plain_read(thttp_request_t* req,
 		  struct _req_ctx_plain *ctx_plain,
 		  char *buf,
 		  int len)
@@ -527,7 +527,7 @@ do_ctx_plain_read(t_thttp_request* req,
 	return read(ctx_plain->server_fd, buf, len);
 }
 static int
-do_ctx_tls_read(t_thttp_request* req,
+do_ctx_tls_read(thttp_request_t* req,
 		struct _req_ctx_tls *ctx,
 		char *buf,
 		int len)
@@ -567,7 +567,7 @@ do_ctx_tls_read(t_thttp_request* req,
 }
 
 static int
-do_ctx_read(t_thttp_request* req,
+do_ctx_read(thttp_request_t* req,
 	    struct _req_ctx_plain *ctx_plain,
 	    struct _req_ctx_tls *ctx_tls,
 	    char *buf,
@@ -581,14 +581,14 @@ do_ctx_read(t_thttp_request* req,
 }
 
 static int
-do_ctx_plain_close (t_thttp_request* req,
+do_ctx_plain_close (thttp_request_t* req,
 		    struct _req_ctx_plain *ctx_plain)
 {
 	return close(ctx_plain->server_fd);
 }
 
 static int
-do_ctx_tls_close (t_thttp_request* req,
+do_ctx_tls_close (thttp_request_t* req,
 		  struct _req_ctx_tls *ctx)
 {
 	mbedtls_ssl_close_notify(&ctx->ssl);
@@ -603,7 +603,7 @@ do_ctx_tls_close (t_thttp_request* req,
 }
 
 static int
-do_ctx_close(t_thttp_request* req,
+do_ctx_close(thttp_request_t* req,
 	    struct _req_ctx_plain *ctx_plain,
 	    struct _req_ctx_tls *ctx_tls)
 {
@@ -615,7 +615,7 @@ do_ctx_close(t_thttp_request* req,
 }
 
 static int
-thttp_request_do_abstract (t_thttp_request* req, struct http_response_parser *parser)
+thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *parser)
 {
 	int ret, len;
 	struct _req_ctx_plain ctx_plain;
@@ -626,7 +626,7 @@ thttp_request_do_abstract (t_thttp_request* req, struct http_response_parser *pa
 	memset(&ctx_plain, 0, sizeof(ctx_plain));
 	memset(&ctx_tls, 0, sizeof(ctx_tls));
 
-	parser->out = calloc(sizeof(t_thttp_response), 1);
+	parser->out = calloc(sizeof(thttp_response_t), 1);
 
 	if (DEBUG)
 		printf("Connecting to tcp/%s/%4d...", req->host,
@@ -701,8 +701,8 @@ exit_connect:
 	return 0;
 }
 
-t_thttp_response*
-thttp_request_do (t_thttp_request *req)
+thttp_response_t*
+thttp_request_do (thttp_request_t *req)
 {
 	int rv;
 	struct http_response_parser parser;
@@ -713,10 +713,10 @@ thttp_request_do (t_thttp_request *req)
 	return parser.out;
 }
 
-t_thttp_response*
-thttp_request_do_file (t_thttp_request *req, int fd)
+thttp_response_t*
+thttp_request_do_file (thttp_request_t *req, int fd)
 {
-	t_thttp_response *r;
+	thttp_response_t *r;
 	int rv;
 	struct http_response_parser parser;
 	memset (&parser, 0, sizeof (parser));
@@ -741,7 +741,7 @@ strcmp_0 (const char *s1, const char *s2)
 }
 
 const char*
-thttp_status_to_string (t_thttp_status status)
+thttp_status_to_string (thttp_status_t status)
 {
 	switch (status) {
 	case THTTP_STATUS_CONTINUE:
@@ -861,7 +861,7 @@ thttp_status_to_string (t_thttp_status status)
 }
 
 // null terminated string expected. dont blame us for crashes otherwise :)
-t_thttp_status
+thttp_status_t
 thttp_string_to_status (char* string)
 {
 	if (!strcmp_0 ("CONTINUE", string)) return THTTP_STATUS_CONTINUE;
@@ -924,7 +924,7 @@ thttp_string_to_status (char* string)
 	return THTTP_STATUS_UNKNOWN;
 }
 
-t_thttp_proto
+thttp_proto_t
 thttp_string_to_proto (char *string)
 {
 
@@ -934,7 +934,7 @@ thttp_string_to_proto (char *string)
 }
 
 const char*
-thttp_proto_to_string (t_thttp_proto proto)
+thttp_proto_to_string (thttp_proto_t proto)
 {
 
 	switch(proto) {
@@ -945,7 +945,7 @@ thttp_proto_to_string (t_thttp_proto proto)
 	return "UNKNOWN";
 }
 
-t_thttp_proto_version
+thttp_proto_version_t
 thttp_string_to_proto_version (char *string)
 {
 
@@ -959,7 +959,7 @@ thttp_string_to_proto_version (char *string)
 
 
 const char*
-thttp_proto_version_to_string (t_thttp_proto_version proto)
+thttp_proto_version_to_string (thttp_proto_version_t proto)
 {
 
 	switch(proto) {
@@ -972,7 +972,7 @@ thttp_proto_version_to_string (t_thttp_proto_version proto)
 	return "UNKNOWN";
 }
 
-t_thttp_method
+thttp_method_t
 thttp_string_to_method (char *string)
 {
 
@@ -989,7 +989,7 @@ thttp_string_to_method (char *string)
 
 
 const char*
-thttp_method_to_string (t_thttp_proto proto)
+thttp_method_to_string (thttp_proto_t proto)
 {
 
 	switch(proto) {
