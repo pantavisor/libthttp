@@ -162,7 +162,6 @@ jsmnutil_get_object_keys (const char *buf, jsmntok_t *tok)
 	}
 
 	c = jsmnutil_object_key_count(buf, tok);
-	printf ("Malloc keys: %d\n",c);
 	arr = malloc(sizeof(jsmntok_t*) * (c + 1));
 	arr[c] = NULL; // NULL terminated
 
