@@ -1,12 +1,15 @@
 # You can put your build options here
 -include config.mk
 
-all: libjsmn.a 
+all: libjsmn.a libjsmnutil.a
 
 libjsmn.a: jsmn.o
 	$(AR) rc $@ $^
 
-%.o: %.c jsmn.h
+libjsmnutil.a: jsmn.o jsmnutil.o
+	$(AR) rc $@ $^
+
+%.o: %.c jsmn.h jsmnutil.h
 	$(CC) -c $(CFLAGS) $< -o $@
 
 test: test_default test_strict test_links test_strict_links
@@ -26,6 +29,9 @@ test_strict_links: test/tests.c
 jsmn_test.o: jsmn_test.c libjsmn.a
 
 simple_example: example/simple.o libjsmn.a
+	$(CC) $(LDFLAGS) $^ -o $@
+
+util-example: example/util.o libjsmn.a libjsmnutil.a
 	$(CC) $(LDFLAGS) $^ -o $@
 
 jsondump: example/jsondump.o libjsmn.a
