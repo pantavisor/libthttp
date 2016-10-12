@@ -46,7 +46,7 @@ typedef struct _systemc_state
 	time_t step_time;
 	time_t progress_time;
 
-	systemc_object *base;
+	systemc_object **basev;
 	systemc_object *kernel;
 	systemc_object **volumesv;
 	systemc_platform **platformsv;
