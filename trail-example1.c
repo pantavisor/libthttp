@@ -1,8 +1,13 @@
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "trail.h"
 
 const char BUF[] =
 	"{"
-	"  \"rev\": 0,"
+	"  \"rev\": 100,"
 	"  \"systemc\": ["
 	"    ["
 	"      {"
@@ -57,6 +62,10 @@ const char BUF[] =
 
 int main ()
 {
+	systemc_state *state = trail_parse_state (BUF, strlen(BUF));
 
+	printf("systemc_state:\n");
+	printf(" - rev: %d\n", state->rev);
+	free(state);
 	return 0;
 }

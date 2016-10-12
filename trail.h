@@ -36,6 +36,8 @@ typedef struct _systemc_step
 
 typedef struct _systemc_state
 {
+	int rev;
+
 	char *trail_id; // trail-id
 
 	char *committer;
@@ -50,7 +52,7 @@ typedef struct _systemc_state
 	systemc_platform **platformsv;
 } systemc_state;
 
-systemc_state* trail_parse_state (char *buf, int len);
+systemc_state* trail_parse_state (const char *buf, int len);
 
-systemc_state* trail_parse_state_from_file (char *filename);
+systemc_state* trail_parse_state_from_file (const char *filename);
 
