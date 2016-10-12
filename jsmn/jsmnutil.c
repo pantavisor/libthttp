@@ -23,12 +23,12 @@ traverse_token (const char *buf, jsmntok_t* tok)
 // token of type array and it will iterate the direct children of that token
 // through travesal the depth first token array.
 static int
-iterate_json_array(const char *buf, jsmntok_t* tok, token_iter_f func, void *data)
+iterate_json_item(const char *buf, jsmntok_t* tok, token_iter_f func, void *data)
 {
 	jsmntok_t *s;
 	int i;
 	int c=0;
-	if (tok[0].type != JSMN_ARRAY)
+	if (tok[0].type != JSMN_ARRAY && tok[0].type != JSMN_OBJECT)
 		return JSMNUTIL_ERROR_TOKTYPE;
 
 	c++;
@@ -38,28 +38,6 @@ iterate_json_array(const char *buf, jsmntok_t* tok, token_iter_f func, void *dat
 	}
 
 	return JSMNUTIL_OK;
-}
-
-// is good for getting elements of any array type token. Just point tok+t to the
-// token of type array and it will iterate the direct children of that token
-// through travesal the depth first token array.
-static int
-iterate_json_keys(const char *buf, jsmntok_t* tok, token_iter_f func, void *data)
-{
-	jsmntok_t *s;
-	int i;
-	int c=0;
-
-	if (tok[c].type != JSMN_OBJECT)
-		return JSMNUTIL_ERROR_TOKTYPE;
-
-	c++;
-	for(i=0; i < get_json_object_key_count(buf, tok); i++) {
-		printf ("Before traverse: %d %d\n", c, (tok+c)->size);
-		func(data, buf, tok+c, i);
-		c += traverse_token (buf, tok+c);
-		printf ("after traverse: %d\n", c);
-	}
 }
 
 
@@ -92,7 +70,6 @@ tok_arr_append_cb(void *data, const char* buf, jsmntok_t *tok, int c)
 {
 	jsmntok_t **arr = (jsmntok_t **) data;
 	// XXX: figure get_array_toks without the +1 offset.
-
 	arr[c] = tok;
 }
 
@@ -122,7 +99,7 @@ jsmnutil_get_array_toks (const char *buf, jsmntok_t *tok)
 	arr = malloc(sizeof(jsmntok_t*) * (tok->size + 1));
 	arr[tok->size] = NULL; // NULL terminated
 
-	iterate_json_array(buf, tok, tok_arr_append_cb, arr);
+	iterate_json_item(buf, tok, tok_arr_append_cb, arr);
 
 	return arr;
 }
@@ -155,7 +132,7 @@ jsmnutil_get_object_keys (const char *buf, jsmntok_t *tok)
 	arr = malloc(sizeof(jsmntok_t*) * (c + 1));
 	arr[c] = NULL; // NULL terminated
 
-	iterate_json_keys(buf, tok, tok_arr_append_cb, arr);
+	iterate_json_item(buf, tok, tok_arr_append_cb, arr);
 
 	return arr;
 }
