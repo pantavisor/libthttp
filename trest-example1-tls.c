@@ -1,9 +1,11 @@
+
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "trest.h"
+#include "jsmn/jsmnutil.h"
 
 #define DEFAULT_HOST "localhost"
 #define DEFAULT_PORT 12366
@@ -73,17 +75,6 @@ get_json_key_value(char *buf, char *key, jsmntok_t* tok, int tokc)
 	return NULL;
 }
 
-int
-get_json_array_count(char *buf, jsmntok_t* tok, int tokc)
-{
-	if (tok[0].type != JSMN_ARRAY) {
-		printf ("provided tok is not of type JSNM_ARRAY\n");
-		return -1;
-	}
-
-	return tok[0].size;
-}
-
 static void
 print_step (void *data, char* buf, jsmntok_t *tok, int c)
 {
@@ -96,7 +87,8 @@ print_step (void *data, char* buf, jsmntok_t *tok, int c)
 	free(s);
 }
 
-int main (char **argv, int argc)
+int
+main (char **argv, int argc)
 {
 	int rv = 0;
 	char *device_abrn = 0, *device_id = 0, *device_nick = 0;
@@ -354,7 +346,7 @@ int main (char **argv, int argc)
 		rv = 12;
 		goto exit;
 	}
-	printf(" OK [steps: %d]\n", get_json_array_count (res5->body, res5->json_tokv, res5->json_tokc));
+	printf(" OK [steps: %d]\n", get_json_array_count (res5->body, res5->json_tokv));
 	iterate_json_array (res5->body, res5->json_tokv, 0, (token_iter_f) print_step, NULL);
 
 	printf("get trail steps as device (device: %s) ...", device_nick);
@@ -371,7 +363,7 @@ int main (char **argv, int argc)
 		rv = 12;
 		goto exit;
 	}
-	printf(" OK [steps: %d]\n", get_json_array_count (res5->body, res5->json_tokv, res5->json_tokc));
+	printf(" OK [steps: %d]\n", get_json_array_count (res5->body, res5->json_tokv));
 	iterate_json_array (res6->body, res6->json_tokv, 0, (token_iter_f) print_step, NULL);
 
 exit:

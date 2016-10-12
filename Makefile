@@ -30,7 +30,9 @@ LIBTHTTP_PREREQ := \
 	tinyhttp/chunk.c tinyhttp/chunk.h \
 	tinyhttp/header.c tinyhttp/header.h \
 	tinyhttp/http.c tinyhttp/http.h \
-	jsmn/jsmn.c jsmn/jsmn.h
+	jsmn/jsmnutil.c jsmn/jsmnutil.h \
+	jsmn/jsmn.c jsmn/jsmn.h \
+	$(NULL)
 
 LIBTREST_PREREQ := \
 	$(LIBTHTTP_PREREQ) \
