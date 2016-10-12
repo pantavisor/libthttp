@@ -1,4 +1,4 @@
-TARGETS = thttp-example1 thttp-example1-tls trest-example1 trest-example1-tls
+TARGETS = thttp-example1 thttp-example1-tls trest-example1 trest-example1-tls trail-example1
 
 DEBUG := 0
 CFLAGS := -g 
@@ -8,6 +8,8 @@ trest-example1-tls_DEFINES := -DJSMN_PARENT_LINKS=1 -DDEBUG=$(DEBUG)
 
 thttp-example1_DEFINES := -DDEBUG=$(DEBUG)
 thttp-example1-tls_DEFINES := -DDEBUG=$(DEBUG)
+
+trail-example1_DEFINES := -DDEBUG=$(DEBUG)
 
 MBEDTLS_DIR := mbedtls-2.3.0
 MBEDTLS_LIBS :=  \
@@ -38,6 +40,11 @@ LIBTREST_PREREQ := \
 	$(LIBTHTTP_PREREQ) \
 	trest.c trest.h \
 
+LIBTRAIL_PREREQ := \
+	$(LIBTREST_PREREQ) \
+	trail.c trail.h \
+
+
 $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l)):
 	CFLAGS="-I$(PWD)/$(MBEDTLS_DIR)/configs/ -DMBEDTLS_CONFIG_FILE='<$(MBEDTLS_PROFILE).h>'" \
 		make -C $(MBEDTLS_DIR)/library $(MAKEFLAGS) $(MBEDTLS_LIBS)
@@ -55,6 +62,10 @@ trest-example1: $(LIBTREST_PREREQ) trest-example1.c
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
 trest-example1-tls: $(LIBTREST_PREREQ) trest-example1-tls.c
+	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -o $@ \
+		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
+
+trail-example1: $(LIBTREST_PREREQ) trail-example1.c
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -o $@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
