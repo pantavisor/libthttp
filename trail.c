@@ -197,15 +197,12 @@ parse_share_arr (const char *buf, jsmntok_t *tok)
 static void
 parse_systemc (systemc_state *self, const char *buf, jsmntok_t *tok)
 {
-	printf ("parse_systemc: start\n");
 	self->basev = parse_object_arr(buf, tok);
 }
 
 static void
 parse_volumes (systemc_state *self, const char *buf, jsmntok_t *tok)
 {
-	printf ("parse_volumes: start\n");
-
 	jsmntok_t **arr, **arr_i;
 	int c,i;
 
@@ -224,8 +221,6 @@ parse_volumes (systemc_state *self, const char *buf, jsmntok_t *tok)
 static systemc_platform*
 parse_platform (const char *buf, jsmntok_t *tok)
 {
-	printf ("parse_platform: start\n");
-
 	jsmntok_t **arr, **arr_i;
 	int c,i;
 	systemc_platform *obj;
@@ -271,8 +266,6 @@ exit:
 static void
 parse_platforms (systemc_state *self, const char *buf, jsmntok_t *tok)
 {
-	printf ("parse_platforms: start\n");
-
 	jsmntok_t **arr, **arr_i;
 	int c,i;
 
