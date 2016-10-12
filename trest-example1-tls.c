@@ -346,7 +346,7 @@ main (char **argv, int argc)
 		rv = 12;
 		goto exit;
 	}
-	printf(" OK [steps: %d]\n", get_json_array_count (res5->body, res5->json_tokv));
+	printf(" OK [steps: %d]\n", jsmnutil_array_count (res5->body, res5->json_tokv));
 	iterate_json_array (res5->body, res5->json_tokv, 0, (token_iter_f) print_step, NULL);
 
 	printf("get trail steps as device (device: %s) ...", device_nick);
@@ -363,7 +363,7 @@ main (char **argv, int argc)
 		rv = 12;
 		goto exit;
 	}
-	printf(" OK [steps: %d]\n", get_json_array_count (res5->body, res5->json_tokv));
+	printf(" OK [steps: %d]\n", jsmnutil_array_count (res5->body, res5->json_tokv));
 	iterate_json_array (res6->body, res6->json_tokv, 0, (token_iter_f) print_step, NULL);
 
 exit:

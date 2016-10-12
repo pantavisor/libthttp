@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -73,9 +74,42 @@ tok_arr_append_cb(void *data, const char* buf, jsmntok_t *tok, int c)
 	arr[c] = tok;
 }
 
+int
+jsmnutil_parse_json (const char *buf, jsmntok_t **jsonv_out, int *jsons_out)
+{
+	jsmn_parser parser;
+	int r;
+
+	jsmn_init (&parser);
+
+	*jsons_out=10;
+	*jsonv_out = malloc (*jsons_out * sizeof(jsmntok_t));
+
+	if (*jsonv_out == NULL) {
+		fprintf(stderr, "malloc(): errno=%d\n", errno);
+		return 0;
+	}
+again:
+	r = jsmn_parse(&parser, buf, strlen (buf), *jsonv_out,
+		       *jsons_out);
+
+	if (r < 0) {
+		if (r == JSMN_ERROR_NOMEM) {
+			*jsons_out = *jsons_out * 2;
+			*jsonv_out = realloc(*jsonv_out, sizeof(jsmntok_t)
+					     * *jsons_out);
+			if (jsonv_out == NULL) {
+				return 0;
+			}
+			goto again;
+		}
+	}
+	return r;
+}
+
 
 int
-get_json_array_count(const char *buf, jsmntok_t* tok)
+jsmnutil_array_count(const char *buf, jsmntok_t* tok)
 {
 	if (tok[0].type != JSMN_ARRAY) {
 		printf ("provided tok is not of type JSNM_ARRAY\n");
@@ -105,7 +139,7 @@ jsmnutil_get_array_toks (const char *buf, jsmntok_t *tok)
 }
 
 int
-get_json_object_key_count(const char *buf, jsmntok_t* tok)
+jsmnutil_object_key_count(const char *buf, jsmntok_t* tok)
 {
 	if (tok[0].type != JSMN_OBJECT) {
 		printf ("provided tok is not of type JSNM_ARRAY\n");
@@ -127,7 +161,7 @@ jsmnutil_get_object_keys (const char *buf, jsmntok_t *tok)
 		return NULL;
 	}
 
-	c = get_json_object_key_count(buf, tok);
+	c = jsmnutil_object_key_count(buf, tok);
 	printf ("Malloc keys: %d\n",c);
 	arr = malloc(sizeof(jsmntok_t*) * (c + 1));
 	arr[c] = NULL; // NULL terminated

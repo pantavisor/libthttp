@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "jsmn/jsmnutil.h"
 #include "jsmn/jsmn.h"
 #include "trest.h"
 #include "thttp.h"
@@ -44,39 +45,6 @@ struct trest_request {
 	char **headers;
 	char *json_body;
 };
-
-static int
-parse_json (const char *buf, jsmntok_t **jsonv_out, int *jsons_out)
-{
-	jsmn_parser parser;
-	int r;
-
-	jsmn_init (&parser);
-
-	*jsons_out=10;
-	*jsonv_out = malloc (*jsons_out * sizeof(jsmntok_t));
-
-	if (*jsonv_out == NULL) {
-		fprintf(stderr, "malloc(): errno=%d\n", errno);
-		return 0;
-	}
-again:
-	r = jsmn_parse(&parser, buf, strlen (buf), *jsonv_out,
-		       *jsons_out);
-
-	if (r < 0) {
-		if (r == JSMN_ERROR_NOMEM) {
-			*jsons_out = *jsons_out * 2;
-			*jsonv_out = realloc(*jsonv_out, sizeof(jsmntok_t)
-					     * *jsons_out);
-			if (jsonv_out == NULL) {
-				return 0;
-			}
-			goto again;
-		}
-	}
-	return r;
-}
 
 static void
 update_tokens_from_json_response (struct trest *self,
@@ -494,7 +462,7 @@ trest_do_json_request (trest_ptr client,
 	if (response->body) {
 		int jc;
 		res->body = strdup(response->body);
-		res->json_tokc = parse_json (response->body, &res->json_tokv, &res->json_toks);
+		res->json_tokc = jsmnutil_parse_json (response->body, &res->json_tokv, &res->json_toks);
 		if (!res->json_tokc)
 		{
 			// XXX: update auth status of response?
