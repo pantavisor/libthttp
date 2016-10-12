@@ -65,7 +65,7 @@ trest-example1-tls: $(LIBTREST_PREREQ) trest-example1-tls.c
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -o $@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
-trail-example1: $(LIBTREST_PREREQ) trail-example1.c
+trail-example1: $(LIBTRAIL_PREREQ) trail-example1.c
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -o $@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
