@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -63,9 +62,47 @@ const char BUF[] =
 int main ()
 {
 	systemc_state *state = trail_parse_state (BUF, strlen(BUF));
+	systemc_object **basev_i = state->basev;
+	systemc_volobject **volumesv_i = state->volumesv;
+	systemc_platform **platformsv_i = state->platformsv;
 
 	printf("systemc_state:\n");
-	printf(" - rev: %d\n", state->rev);
-	free(state);
+	printf(" rev: %d\n", state->rev);
+
+	printf(" kernel:\n");
+	printf ("  - abrn:%s filename:%s\n", state->kernel->abrn, state->kernel->filename);
+
+	printf(" systemc:\n");
+	while(*basev_i) {
+		printf ("  - abrn:%s filename:%s\n", (*basev_i)->abrn, (*basev_i)->filename);
+		basev_i++;
+	}
+
+	printf(" volumes:\n");
+	while(*volumesv_i) {
+		printf ("  - abrn:%s filename:%s flags:%s \n",
+			(*volumesv_i)->abrn, (*volumesv_i)->filename, (*volumesv_i)->flags);
+		volumesv_i++;
+	}
+
+	printf(" platforms:\n");
+	while(*platformsv_i) {
+		systemc_object **configs_i;
+
+		printf ("  - name:%s type: %s  parent: %s  exec: %s  share: %d\n",
+			(*platformsv_i)->name, (*platformsv_i)->type, (*platformsv_i)->parent,
+			(*platformsv_i)->exec, (*platformsv_i)->share);
+
+		configs_i = (*platformsv_i)->configs;
+
+		printf ("    configs:\n");
+		while (*configs_i) {
+			printf ("      - abrn:%s filename:%s\n", (*configs_i)->abrn, (*configs_i)->filename);
+			configs_i++;
+		}
+
+		platformsv_i++;
+	}
+	trail_state_free (state);
 	return 0;
 }
