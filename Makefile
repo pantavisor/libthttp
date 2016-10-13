@@ -1,4 +1,4 @@
-TARGETS = thttp-example1 thttp-example1-tls trest-example1 trest-example1-tls trail-example1
+TARGETS = thttp-example1 thttp-example1-tls trest-example1 trest-example1-tls trail-example1 libtrail.a
 
 DEBUG := 0
 CFLAGS := -g 
@@ -44,6 +44,8 @@ LIBTRAIL_PREREQ := \
 	$(LIBTREST_PREREQ) \
 	trail.c trail.h \
 
+LIBTRAIL_SRCS := $(filter %.c, $(LIBTRAIL_PREREQ))
+LIBTRAIL_OBJS := $(LIBTRAIL_SRCS:.c=.o)
 
 $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l)):
 	CFLAGS="-I$(PWD)/$(MBEDTLS_DIR)/configs/ -DMBEDTLS_CONFIG_FILE='<$(MBEDTLS_PROFILE).h>'" \
@@ -57,25 +59,36 @@ thttp-example1-tls: $(LIBTHTTP_PREREQ) thttp-example1-tls.c $(foreach l, $(MBEDT
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) -o $@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
-trest-example1: $(LIBTREST_PREREQ) trest-example1.c
+trest-example1: $(LIBTREST_PREREQ) trest-example1.c $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l))
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -o $@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
-trest-example1-tls: $(LIBTREST_PREREQ) trest-example1-tls.c
+trest-example1-tls: $(LIBTREST_PREREQ) trest-example1-tls.c $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l))
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -o $@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
-trail-example1: $(LIBTRAIL_PREREQ) trail-example1.c
+trail-example1: $(LIBTRAIL_PREREQ) trail-example1.c $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l))
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -o $@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -c $< -o $@
+
+libtrail.a: $(LIBTRAIL_OBJS) $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l))
+	echo $^
+	$(AR) rcs $@ $^
 
 clean:
 	make -C $(MBEDTLS_DIR)/library clean $(MAKEFLAGS)
 	rm -f $(TARGETS)
 
+#install:
+#	install -d $(DESTDIR)$(PREFIX)/bin
+#	install -D $(TARGETS) $(DESTDIR)$(PREFIX)/bin/
+
 install:
-	install -d $(DESTDIR)$(PREFIX)/bin/ 
-	install -D $(TARGETS) $(DESTDIR)$(PREFIX)/bin/
+	install -d $(DESTDIR)$(PREFIX)/lib
+	install -D libtrail.a $(DESTDIR)$(PREFIX)/lib/
 
 uninstall:
 	rm -f $(foreach t,$(TARGETS),$(DESTDIR)$(PREFIX)/bin/$(t))
