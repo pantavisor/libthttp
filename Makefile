@@ -87,8 +87,10 @@ clean:
 #	install -D $(TARGETS) $(DESTDIR)$(PREFIX)/bin/
 
 install:
-	install -d $(DESTDIR)$(PREFIX)/lib
+	install -d $(DESTDIR)$(PREFIX)/lib $(DESTDIR)$(PREFIX)/usr/include/jsmn
 	install -D libtrail.a $(DESTDIR)$(PREFIX)/lib/
+	install -D trail.h $(DESTDIR)$(PREFIX)/usr/include/
+	install -D jsmn/jsmn.h $(DESTDIR)$(PREFIX)/usr/include/jsmn/
 
 uninstall:
 	rm -f $(foreach t,$(TARGETS),$(DESTDIR)$(PREFIX)/bin/$(t))
