@@ -7,7 +7,7 @@ LOCAL_MODULE := libthttp
 LOCAL_MODULE_FILENAME := $(LOCAL_MODULE).done
 LOCAL_CATEGORY_PATH := system
 
-LOCAL_EXPORT_LDLIBS := -l:libtrail.a
+LOCAL_EXPORT_LDLIBS := -l:libtrail.a -l:libmbedtls.a -l:libmbedx509.a -l:libmbedcrypto.a
 
 LIBTHTTP_CFLAGS := \
 	$(TARGET_GLOBAL_CFLAGS) \

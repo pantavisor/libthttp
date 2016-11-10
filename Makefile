@@ -44,6 +44,8 @@ LIBTRAIL_PREREQ := \
 	$(LIBTREST_PREREQ) \
 	trail.c trail.h \
 
+MAKEFLAGS += -V=1
+
 LIBTRAIL_SRCS := $(filter %.c, $(LIBTRAIL_PREREQ))
 LIBTRAIL_OBJS := $(LIBTRAIL_SRCS:.c=.o)
 
@@ -89,8 +91,11 @@ clean:
 install:
 	install -d $(DESTDIR)$(PREFIX)/lib $(DESTDIR)$(PREFIX)/usr/include/jsmn
 	install -D libtrail.a $(DESTDIR)$(PREFIX)/lib/
+	install -D mbedtls-2.3.0/library/*.a $(DESTDIR)$(PREFIX)/lib/
 	install -D trail.h $(DESTDIR)$(PREFIX)/usr/include/
+	install -D trest.h $(DESTDIR)$(PREFIX)/usr/include/
 	install -D jsmn/jsmn.h $(DESTDIR)$(PREFIX)/usr/include/jsmn/
+	install -D jsmn/jsmnutil.h $(DESTDIR)$(PREFIX)/usr/include/jsmn/
 
 uninstall:
 	rm -f $(foreach t,$(TARGETS),$(DESTDIR)$(PREFIX)/bin/$(t))
