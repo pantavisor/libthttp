@@ -275,16 +275,27 @@ int main (char **argv, int argc)
 	printf(" OK\n");
 
 
+	char *commit_msg = malloc (sizeof(char) * 4096);
+	memset(commit_msg, '\0', sizeof(char) * 4096);
+	memset(commit_msg, 'a', sizeof(char) * 4000);
+	char *str = malloc (strlen ("{\n"
+				    "  \"rev\": 1,\n"
+				    "  \"commit-msg\": \"large commit message: %s\",\n"
+				    "  \"state\": { \"mydata\": \"myvalue1\" }\n"
+				    "}") * sizeof(char) + strlen (commit_msg));
+	sprintf(str, "{\n"
+		"  \"rev\": 1,\n"
+		"  \"commit-msg\": \"%s\",\n"
+		"  \"state\": { \"mydata\": \"myvalue1\" }\n"
+		"}", commit_msg);
+	free (str);
+
 	printf("post new step to trail as owner (device: %s) ...", device_nick);
 	req4 = trest_make_request (TREST_METHOD_POST,
 				   trail_steps_ep,
 				   0, // queries
 				   0, // headers
-				   "{\n"
-				   "  \"rev\": 1,\n"
-				   "  \"commit-msg\": \"move to myvalue1\",\n"
-				   "  \"state\": { \"mydata\": \"myvalue1\" }\n"
-				   "}");
+				   str);
 
 	res4 = trest_do_json_request(userclient,
 				     req4);
