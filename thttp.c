@@ -63,7 +63,7 @@ struct http_response_parser {
 static unsigned char*
 buf_nappend (unsigned char *buf, size_t *at, const unsigned char* append, size_t *bufsize, size_t n)
 {
-	if (*at + n >= *bufsize) {
+	while (*at + n >= *bufsize) {
 		*bufsize += sizeof(char) * BUF_BLOCKSIZE;
 		buf = realloc (buf, *bufsize);
 	}
