@@ -76,7 +76,7 @@ buf_nappend (unsigned char *buf, size_t *at, const unsigned char* append, size_t
 static unsigned char*
 buf_append (unsigned char *buf, size_t *at, const unsigned char* append, size_t *bufsize)
 {
-	buf_nappend(buf, at, append, bufsize, strlen(append));
+	buf = buf_nappend(buf, at, append, bufsize, strlen(append));
 	return buf;
 }
 
