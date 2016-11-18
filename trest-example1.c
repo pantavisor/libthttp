@@ -285,7 +285,6 @@ int main (char **argv, int argc)
 	memset(commit_msg, 'a', sizeof(char) * 4000);
 	char *str = malloc (strlen (COMMIT_MSG_TMPL) * sizeof(char) + strlen (commit_msg));
 	sprintf(str, COMMIT_MSG_TMPL, commit_msg);
-	free (str);
 
 	printf("post new step to trail as owner (device: %s) ...", device_nick);
 	req4 = trest_make_request (TREST_METHOD_POST,
@@ -388,6 +387,8 @@ exit:
 		trest_response_free(res4);
 	if (req4)
 		trest_request_free(req4);
+	if (str)
+		free(str);
 	if (res4a)
 		trest_response_free(res4a);
 	if (req4a)
