@@ -90,12 +90,16 @@ clean:
 
 install:
 	install -d $(DESTDIR)$(PREFIX)/lib $(DESTDIR)$(PREFIX)/usr/include/jsmn
+	install -d $(DESTDIR)$(PREFIX)/lib $(DESTDIR)$(PREFIX)/usr/include/mbedtls
 	install -D libtrail.a $(DESTDIR)$(PREFIX)/lib/
 	install -D mbedtls-2.3.0/library/*.a $(DESTDIR)$(PREFIX)/lib/
 	install -D trail.h $(DESTDIR)$(PREFIX)/usr/include/
 	install -D trest.h $(DESTDIR)$(PREFIX)/usr/include/
+	install -D thttp.h $(DESTDIR)$(PREFIX)/usr/include/
+	install -D thttp-enums.h $(DESTDIR)$(PREFIX)/usr/include/
 	install -D jsmn/jsmn.h $(DESTDIR)$(PREFIX)/usr/include/jsmn/
 	install -D jsmn/jsmnutil.h $(DESTDIR)$(PREFIX)/usr/include/jsmn/
+	install -D mbedtls-2.3.0/include/mbedtls/sha256.h $(DESTDIR)$(PREFIX)/usr/include/mbedtls/
 
 uninstall:
 	rm -f $(foreach t,$(TARGETS),$(DESTDIR)$(PREFIX)/bin/$(t))
