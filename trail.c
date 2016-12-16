@@ -54,13 +54,13 @@ parse_object (const char *buf, jsmntok_t *tok)
 
 	keys_i = keys = jsmnutil_get_object_keys(buf, tok);
 	obj = malloc(sizeof(systemc_object));
-	obj->abrn = NULL;
+	obj->prn = NULL;
 	obj->filename = NULL;
 
 	while (*keys_i) {
 		int n = (*keys_i)->end - (*keys_i)->start;
 		if (!strncmp ("value", buf + (*keys_i)->start, strlen("value"))) {
-			obj->abrn = parse_strtok (buf, (*keys_i)+1);
+			obj->prn = parse_strtok (buf, (*keys_i)+1);
 		} else if (!strncmp ("key", buf + (*keys_i)->start, strlen("key"))) {
 			obj->filename = parse_strtok (buf, (*keys_i)+1);
 		} else {
@@ -96,7 +96,7 @@ parse_volobject (const char *buf, jsmntok_t *tok)
 
 	keys_i = keys = jsmnutil_get_object_keys(buf, tok);
 	obj = malloc(sizeof(systemc_volobject));
-	obj->abrn = NULL;
+	obj->prn = NULL;
 	obj->filename = NULL;
 	obj->flags = NULL;
 
@@ -119,7 +119,7 @@ parse_volobject (const char *buf, jsmntok_t *tok)
 		if (!strncmp ("type", buf + (*vkeys_i)->start, strlen("type"))) {
 			obj->flags = parse_strtok (buf, (*vkeys_i)+1);
 		} else if (!strncmp ("file", buf + (*vkeys_i)->start, strlen("file"))) {
-			obj->abrn = parse_strtok (buf, (*vkeys_i)+1);
+			obj->prn = parse_strtok (buf, (*vkeys_i)+1);
 		} else {
 			printf ("WARNING: unexpected key in volobject value object\n");
 			goto parse_fail;
@@ -372,8 +372,8 @@ void trail_platform_free (systemc_platform* self)
 void
 trail_object_free (systemc_object* self)
 {
-	if (self->abrn)
-		free(self->abrn);
+	if (self->prn)
+		free(self->prn);
 	if (self->filename)
 		free(self->filename);
 	free(self);
@@ -382,8 +382,8 @@ trail_object_free (systemc_object* self)
 void
 trail_volobject_free (systemc_volobject* self)
 {
-	if (self->abrn)
-		free(self->abrn);
+	if (self->prn)
+		free(self->prn);
 	if (self->filename)
 		free(self->filename);
 	if (self->flags)

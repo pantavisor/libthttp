@@ -89,7 +89,7 @@ print_step (void *data, char* buf, jsmntok_t *tok, int c)
 int main (char **argv, int argc)
 {
 	int rv = 0;
-	char *device_abrn = 0, *device_id = 0, *device_nick = 0;
+	char *device_prn = 0, *device_id = 0, *device_nick = 0;
 	char *trail_steps_ep = 0;
 	trest_ptr badclient = 0, deviceclient = 0, userclient = 0;
 	trest_response_ptr res = 0, res1 = 0, res2 = 0, res3 = 0, res4 = 0,
@@ -207,17 +207,17 @@ int main (char **argv, int argc)
 	}
 	device_id = get_json_key_value (res1->body, "id", res1->json_tokv,
 					res1->json_tokc);
-	device_abrn = get_json_key_value (res1->body, "abrn", res1->json_tokv,
+	device_prn = get_json_key_value (res1->body, "prn", res1->json_tokv,
 					  res1->json_tokc);
 	device_nick = get_json_key_value (res1->body, "nick", res1->json_tokv,
 					  res1->json_tokc);
 
-	printf(" OK [deviceid=%s; abrn=%s; nick=%s]\n", device_id, device_abrn, device_nick);
+	printf(" OK [deviceid=%s; prn=%s; nick=%s]\n", device_id, device_prn, device_nick);
 
 	printf("do trest_update_auth (device credentials) ...");
 
 	deviceclient = trest_new_from_userpass(server_host, DEFAULT_PORT,
-					       device_abrn, DEFAULT_DEVICEPASS);
+					       device_prn, DEFAULT_DEVICEPASS);
 
 	if (!deviceclient) {
 		printf (" ERROR creating device client\n");
@@ -363,8 +363,8 @@ exit:
 		free(trail_steps_ep);
 	if (device_id)
 		free(device_id);
-	if (device_abrn)
-		free(device_abrn);
+	if (device_prn)
+		free(device_prn);
 	if (device_nick)
 		free(device_nick);
 	if (res)

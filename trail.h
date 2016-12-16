@@ -3,12 +3,12 @@
 #include "jsmn/jsmn.h"
 
 typedef struct _systemc_object {
-	char *abrn;
+	char *prn;
 	char *filename;
 } systemc_object;
 
 typedef struct _systemc_volobject {
-	char *abrn;
+	char *prn;
 	char *filename;
 	char *flags;
 } systemc_volobject;

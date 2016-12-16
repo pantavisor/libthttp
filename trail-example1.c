@@ -70,18 +70,18 @@ int main ()
 	printf(" rev: %d\n", state->rev);
 
 	printf(" kernel:\n");
-	printf ("  - abrn:%s filename:%s\n", state->kernel->abrn, state->kernel->filename);
+	printf ("  - prn:%s filename:%s\n", state->kernel->prn, state->kernel->filename);
 
 	printf(" systemc:\n");
 	while(*basev_i) {
-		printf ("  - abrn:%s filename:%s\n", (*basev_i)->abrn, (*basev_i)->filename);
+		printf ("  - prn:%s filename:%s\n", (*basev_i)->prn, (*basev_i)->filename);
 		basev_i++;
 	}
 
 	printf(" volumes:\n");
 	while(*volumesv_i) {
-		printf ("  - abrn:%s filename:%s flags:%s \n",
-			(*volumesv_i)->abrn, (*volumesv_i)->filename, (*volumesv_i)->flags);
+		printf ("  - prn:%s filename:%s flags:%s \n",
+			(*volumesv_i)->prn, (*volumesv_i)->filename, (*volumesv_i)->flags);
 		volumesv_i++;
 	}
 
@@ -97,7 +97,7 @@ int main ()
 
 		printf ("    configs:\n");
 		while (*configs_i) {
-			printf ("      - abrn:%s filename:%s\n", (*configs_i)->abrn, (*configs_i)->filename);
+			printf ("      - prn:%s filename:%s\n", (*configs_i)->prn, (*configs_i)->filename);
 			configs_i++;
 		}
 
