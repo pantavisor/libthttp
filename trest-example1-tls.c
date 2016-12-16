@@ -102,7 +102,7 @@ main (char **argv, int argc)
 	const char *cafile;
 	const char **cafiles;
 
-	server_host = getenv ("ABCI_HOST") ? getenv ("ABCI_HOST") :  DEFAULT_HOST;
+	server_host = getenv ("PANTAHUB_HOST") ? getenv ("PANTAHUB_HOST") :  DEFAULT_HOST;
 	cafile = getenv ("CAFILE") ? getenv ("CAFILE") :  0;
 
 	if (cafile) {
@@ -111,7 +111,7 @@ main (char **argv, int argc)
 		cafiles[1] = 0;
 	}
 
-	printf ("ABCI_HOST: %s\n", server_host);
+	printf ("PANTAHUB_HOST: %s\n", server_host);
 	printf ("CAFILE: %s\n", cafile);
 	printf("Creating trest userclients ...");
 	userclient = trest_new_tls_from_userpass(server_host, DEFAULT_PORT,

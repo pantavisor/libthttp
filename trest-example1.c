@@ -98,9 +98,9 @@ int main (char **argv, int argc)
 		req4a = 0, req5 = 0, req6 = 0;
 	const char *server_host;
 
-	server_host = getenv ("ABCI_HOST") ? getenv ("ABCI_HOST") :  DEFAULT_HOST;
+	server_host = getenv ("PANTAHUB_HOST") ? getenv ("PANTAHUB_HOST") :  DEFAULT_HOST;
 
-	printf ("ABCI_HOST: %s\n", server_host);
+	printf ("PANTAHUB_HOST: %s\n", server_host);
 	printf("Creating trest userclients ...");
 	userclient = trest_new_from_userpass(server_host, DEFAULT_PORT,
 					     DEFAULT_USER, DEFAULT_USERPASS);

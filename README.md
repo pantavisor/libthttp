@@ -21,6 +21,6 @@ environment variables:
  1. CAFILE: the root certificate chain you want the tls client to use for validating the server
     - you can produce this inside pantahub-base/pki directory. Read the README.md in that project
       for more details.
- 2. ABCI_HOST: hostname your clients should call to; default is localhost
- 2. ABCI_PORT: port your clients should call to; default is 12365 for plain and 12366 for TLS
+ 2. PANTAHUB_HOST: hostname your clients should call to; default is localhost
+ 2. PANTAHUB_PORT: port your clients should call to; default is 12365 for plain and 12366 for TLS
 
