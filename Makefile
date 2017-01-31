@@ -11,8 +11,10 @@ thttp-example1-tls_DEFINES := -DDEBUG=$(DEBUG)
 
 trail-example1_DEFINES := -DDEBUG=$(DEBUG)
 
+OBJDIR := $(BUILDDIR)
+
 MBEDTLS_DIR := mbedtls-2.3.0
-MBEDTLS_LIBS :=  \
+MBEDTLS_LIBS := \
 	libmbedtls.a \
 	libmbedx509.a \
 	libmbedcrypto.a \
@@ -23,7 +25,7 @@ MBEDTLS_CFLAGS := -I$(MBEDTLS_DIR)/configs/ \
 	-I$(MBEDTLS_DIR)/include/ \
 	-DMBEDTLS_CONFIG_FILE='<$(MBEDTLS_PROFILE).h>' \
 	$(NULL)
-MBEDTLS_LDFLAGS := $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l))
+MBEDTLS_LDFLAGS := $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
 
 all: $(TARGETS)
 
@@ -44,45 +46,47 @@ LIBTRAIL_PREREQ := \
 	$(LIBTREST_PREREQ) \
 	trail.c trail.h \
 
+V := 1
 MAKEFLAGS += -V=1
 
 LIBTRAIL_SRCS := $(filter %.c, $(LIBTRAIL_PREREQ))
-LIBTRAIL_OBJS := $(LIBTRAIL_SRCS:.c=.o)
+LIBTRAIL_OBJS := $(addprefix $(OBJDIR)/, $(LIBTRAIL_SRCS:.c=.o))
 
-$(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l)):
+$(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l)):
 	CFLAGS="-I$(PWD)/$(MBEDTLS_DIR)/configs/ -DMBEDTLS_CONFIG_FILE='<$(MBEDTLS_PROFILE).h>'" \
-		make -C $(MBEDTLS_DIR)/library $(MAKEFLAGS) $(MBEDTLS_LIBS)
+		make -C $(MBEDTLS_DIR)/library $(MAKEFLAGS) $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
 
-thttp-example1: $(LIBTHTTP_PREREQ) thttp-example1.c $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l))
+thttp-example1: $(LIBTHTTP_PREREQ) thttp-example1.c $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
+	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) -o $(OBJDIR)/$@ \
+		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
+
+thttp-example1-tls: $(LIBTHTTP_PREREQ) thttp-example1-tls.c $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) -o $@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
-thttp-example1-tls: $(LIBTHTTP_PREREQ) thttp-example1-tls.c $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l))
-	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) -o $@ \
-		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
-
-trest-example1: $(LIBTREST_PREREQ) trest-example1.c $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l))
+trest-example1: $(LIBTREST_PREREQ) trest-example1.c $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -o $@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
-trest-example1-tls: $(LIBTREST_PREREQ) trest-example1-tls.c $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l))
+trest-example1-tls: $(LIBTREST_PREREQ) trest-example1-tls.c $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -o $@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
-trail-example1: $(LIBTRAIL_PREREQ) trail-example1.c $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l))
+trail-example1: $(LIBTRAIL_PREREQ) trail-example1.c $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -o $@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
-%.o: %.c
+$(OBJDIR)/%.o: %.c
+	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -c $< -o $@
 
-libtrail.a: $(LIBTRAIL_OBJS) $(foreach l, $(MBEDTLS_LIBS), $(MBEDTLS_DIR)/library/$(l))
+libtrail.a: $(LIBTRAIL_OBJS) $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
 	echo $^
-	$(AR) rcs $@ $^
+	$(AR) rcs $(OBJDIR)/$@ $^
 
 clean:
 	make -C $(MBEDTLS_DIR)/library clean $(MAKEFLAGS)
-	rm -f $(TARGETS)
+	rm -f $(addprefix $(OBJDIR)/, $(TARGETS)) $(LIBTRAIL_OBJS) $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l)) $(OBJDIR)/mbedtls/*.o
 
 #install:
 #	install -d $(DESTDIR)$(PREFIX)/bin
@@ -91,8 +95,7 @@ clean:
 install:
 	install -d $(DESTDIR)$(PREFIX)/lib $(DESTDIR)$(PREFIX)/usr/include/jsmn
 	install -d $(DESTDIR)$(PREFIX)/lib $(DESTDIR)$(PREFIX)/usr/include/mbedtls
-	install -D libtrail.a $(DESTDIR)$(PREFIX)/lib/
-	install -D mbedtls-2.3.0/library/*.a $(DESTDIR)$(PREFIX)/lib/
+	install -D $(OBJDIR)/libtrail.a $(DESTDIR)$(PREFIX)/lib/
 	install -D trail.h $(DESTDIR)$(PREFIX)/usr/include/
 	install -D trest.h $(DESTDIR)$(PREFIX)/usr/include/
 	install -D thttp.h $(DESTDIR)$(PREFIX)/usr/include/
