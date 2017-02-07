@@ -1,4 +1,5 @@
-TARGETS = thttp-example1 thttp-example1-tls trest-example1 trest-example1-tls trail-example1 libtrail.a
+#TARGETS = thttp-example1 thttp-example1-tls trest-example1 trest-example1-tls trail-example1 libtrail.a
+TARGETS = libtrail.a
 
 DEBUG := 0
 CFLAGS := -g 
@@ -96,6 +97,7 @@ install:
 	install -d $(DESTDIR)$(PREFIX)/lib $(DESTDIR)$(PREFIX)/usr/include/jsmn
 	install -d $(DESTDIR)$(PREFIX)/lib $(DESTDIR)$(PREFIX)/usr/include/mbedtls
 	install -D $(OBJDIR)/libtrail.a $(DESTDIR)$(PREFIX)/lib/
+	install -D $(OBJDIR)/libmbed*.a $(DESTDIR)$(PREFIX)/lib/
 	install -D trail.h $(DESTDIR)$(PREFIX)/usr/include/
 	install -D trest.h $(DESTDIR)$(PREFIX)/usr/include/
 	install -D thttp.h $(DESTDIR)$(PREFIX)/usr/include/
