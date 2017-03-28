@@ -53,8 +53,8 @@ int main (char **argv, int argc) {
 	req->method = THTTP_METHOD_POST;
 	req->proto = THTTP_PROTO_HTTP;
 	req->proto_version = THTTP_PROTO_VERSION_10;
-	req->host = "localhost";
-	req->port = 12366;
+	req->host = "api.pantahub.com";
+	req->port = 443;
 	req->path = "/api/auth/login";
 	req->headers = 0;
 	req->body =

@@ -345,19 +345,6 @@ do_ctx_connect_tls (thttp_request_t *req,
 	/*
 	 * 0. Initialize certificates
 	 */
-	mbedtls_printf("  . Loading the CA root certificate ...");
-	fflush(stdout);
-
-	// XXX: make it use our own certs
-	ret = mbedtls_x509_crt_parse( &ctx->cacert, (const unsigned char *) mbedtls_test_cas_pem,
-				      mbedtls_test_cas_pem_len );
-	if( ret < 0 )
-	{
-		mbedtls_printf( " failed\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n", -ret );
-		goto exit;
-	}
-	mbedtls_printf( " ok (%d skipped)\n", ret );
-
 	/* XXX: dopnt use the env here, but rather in example and set the cert file in request obj */
 	if (getenv(ENV_CACHAIN)) {
 		mbedtls_printf("  . Loading the CA root certificate from file: %s ...",
@@ -371,8 +358,21 @@ do_ctx_connect_tls (thttp_request_t *req,
 					-ret );
 			goto exit;
 		}
+		mbedtls_printf(" ok\n");
+	} else {
+		mbedtls_printf("  . Loading the CA root certificate ...");
+		fflush(stdout);
+
+		// XXX: make it use our own certs
+		ret = mbedtls_x509_crt_parse( &ctx->cacert, (const unsigned char *) mbedtls_test_cas_pem,
+					      mbedtls_test_cas_pem_len );
+		if( ret < 0 )
+		{
+			mbedtls_printf( " failed\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n", -ret );
+			goto exit;
+		}
+		mbedtls_printf( " ok (%d skipped)\n", ret );
 	}
-	mbedtls_printf(" ok\n");
 
 
 	/*
@@ -409,7 +409,11 @@ do_ctx_connect_tls (thttp_request_t *req,
 	 * OPTIONAL is not optimal for security,
 	 * but makes interop easier in this simplified example
 	 */
+#ifdef THTTP_DEVELOPMENT
 	mbedtls_ssl_conf_authmode( &ctx->conf, MBEDTLS_SSL_VERIFY_OPTIONAL );
+#else
+	mbedtls_ssl_conf_authmode( &ctx->conf, MBEDTLS_SSL_VERIFY_REQUIRED );
+#endif
 	mbedtls_ssl_conf_ca_chain( &ctx->conf, &ctx->cacert, NULL );
 	mbedtls_ssl_conf_rng( &ctx->conf, mbedtls_ctr_drbg_random, &ctx->ctr_drbg );
 	mbedtls_ssl_conf_dbg( &ctx->conf, my_debug, stdout );
@@ -420,7 +424,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 		goto exit;
 	}
 
-	if ((ret = mbedtls_ssl_set_hostname( &ctx->ssl, "localhost" )) != 0)
+	if ((ret = mbedtls_ssl_set_hostname( &ctx->ssl, "api.pantahub.com" )) != 0)
 	{
 		mbedtls_printf( " failed\n  ! mbedtls_ssl_set_hostname returned %d\n\n", ret );
 		goto exit;

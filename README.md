@@ -24,3 +24,9 @@ environment variables:
  2. PANTAHUB_HOST: hostname your clients should call to; default is localhost
  2. PANTAHUB_PORT: port your clients should call to; default is 12365 for plain and 12366 for TLS
 
+
+
+To Build for using without valid cert you have to pass
+
+ make ... other_DEFINES=-DTHTTP_DEVELOPMENT
+

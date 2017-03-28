@@ -90,7 +90,7 @@ print_step (void *data, char* buf, jsmntok_t *tok, int c)
 int
 main (char **argv, int argc)
 {
-	int rv = 0;
+	int rv = 0, i;
 	char *device_prn = 0, *device_id = 0, *device_nick = 0;
 	char *trail_steps_ep = 0;
 	trest_ptr badclient = 0, deviceclient = 0, userclient = 0;
@@ -190,7 +190,7 @@ main (char **argv, int argc)
 	}
 	printf(" OK\n");
 
-	for (int i=0; i< 5; i++) {
+	for (i=0; i< 5; i++) {
 		sleep(1);
 		printf("do trest_update_auth (run 2: %d/4) ...", i);
 		auth_status = trest_update_auth (userclient);

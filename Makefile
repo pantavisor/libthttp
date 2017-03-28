@@ -4,6 +4,8 @@ TARGETS = libtrail.a
 DEBUG := 0
 CFLAGS := -g 
 
+other_DEFINES :=
+
 trest-example1_DEFINES := -DJSMN_PARENT_LINKS=1 -DDEBUG=$(DEBUG)
 trest-example1-tls_DEFINES := -DJSMN_PARENT_LINKS=1 -DDEBUG=$(DEBUG)
 
@@ -25,6 +27,7 @@ MBEDTLS_PROFILE := config-mini-tls1_1
 MBEDTLS_CFLAGS := -I$(MBEDTLS_DIR)/configs/ \
 	-I$(MBEDTLS_DIR)/include/ \
 	-DMBEDTLS_CONFIG_FILE='<$(MBEDTLS_PROFILE).h>' \
+	$(other_DEFINES) \
 	$(NULL)
 MBEDTLS_LDFLAGS := $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
 
