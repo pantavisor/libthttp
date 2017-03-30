@@ -13,7 +13,7 @@
 #define DEFAULT_BADPASS "badpassword"
 #define DEFAULT_DEVICEPASS "device1"
 
-#define DEVICE_TRAIL_ENDPOINT_FMT "/api/trails/%s/steps"
+#define DEVICE_TRAIL_ENDPOINT_FMT "/trails/%s/steps"
 
 typedef void (*token_iter_f) (void *data, char *buf, jsmntok_t* tok, int c);
 
@@ -192,7 +192,7 @@ int main (char **argv, int argc)
 
 	printf("do_json_request: userclient to create device ... ");
 	req1 = trest_make_request (TREST_METHOD_POST,
-				   "/api/devices/",
+				   "/devices/",
 				   0, // queries
 				   0, // headers
 				   "{ \"secret\": \""
@@ -238,7 +238,7 @@ int main (char **argv, int argc)
 	printf("do post initial trail (device: %s) ...", device_nick);
 
 	req2 = trest_make_request (TREST_METHOD_POST,
-				   "/api/trails/",
+				   "/trails/",
 				   0, // queries
 				   0, // headers
 				   "{ \"mydata\": \"myvalue\" }");
@@ -293,6 +293,7 @@ int main (char **argv, int argc)
 				   0, // queries
 				   0, // headers
 				   str);
+
 
 	res4 = trest_do_json_request(userclient,
 				     req4);
@@ -390,6 +391,8 @@ exit:
 		trest_request_free(req4);
 	if (str)
 		free(str);
+	if (commit_msg)
+		free(commit_msg);
 	if (res4a)
 		trest_response_free(res4a);
 	if (req4a)
