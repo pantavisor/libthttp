@@ -222,9 +222,8 @@ trest_new_tls_from_userpass(const char* host, int port,
 			c++;
 			ci++;
 		}
-
 		client->tls_cafiles = malloc (sizeof(char*) * (c+1));
-		memcpy (client->tls_cafiles, cafiles, c+1);
+		memcpy (client->tls_cafiles, cafiles, sizeof(char*) * (c + 1));
 	}
 
 	return (trest_ptr) client;
