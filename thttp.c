@@ -330,19 +330,22 @@ do_ctx_connect_tls (thttp_request_t *req,
 	mbedtls_x509_crt_init(&ctx->cacert);
 	mbedtls_ctr_drbg_init(&ctx->ctr_drbg);
 
-	mbedtls_printf("\n  . Seeding the random number generator...");
-	fflush(stdout);
+	if (VERBOSE) {
+		mbedtls_printf("\n  . Seeding the random number generator...");
+		fflush(stdout);
+	}
 
 	mbedtls_entropy_init(&ctx->entropy);
 	if( ( ret = mbedtls_ctr_drbg_seed( &ctx->ctr_drbg, mbedtls_entropy_func, &ctx->entropy,
 					   (const unsigned char *) pers,
 					   strlen( pers ) ) ) != 0 )
 	{
-		mbedtls_printf(" failed\n  ! mbedtls_ctr_drbg_seed returned %d\n", ret);
+		mbedtls_printf(" failed seeding random generator\n  ! mbedtls_ctr_drbg_seed returned %d\n", ret);
 		goto exit;
 	}
 
-	mbedtls_printf(" ok\n");
+	if (VERBOSE)
+		mbedtls_printf(" ok\n");
 
 	/*
 	 * 0. Initialize certificates
@@ -350,67 +353,82 @@ do_ctx_connect_tls (thttp_request_t *req,
 	if (tls_req->crtfiles) {
 		char **buf = tls_req->crtfiles;
 		while (*buf) {
-			mbedtls_printf("  . Loading the CA root certificate from file: %s ...",
-				       *buf);
-			fflush(stdout);
+			if  (VERBOSE) {
+				mbedtls_printf("  . Loading the CA root certificate from file: %s ...",
+					       *buf);
+				fflush(stdout);
+			}
 
 			ret = mbedtls_x509_crt_parse_file(&ctx->cacert, *buf);
 			if( ret < 0 )
 			{
-				mbedtls_printf( " failed\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n",
-						-ret );
+				mbedtls_printf( " failed loading CA root from %s\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n",
+						*buf, -ret );
 				goto exit;
 			}
-			mbedtls_printf(" ok\n");
+			if (VERBOSE)
+				mbedtls_printf(" ok\n");
 			buf++;
 		}
 	} else if (getenv(ENV_CACHAIN)) {
-		mbedtls_printf("  . Loading the CA root certificate from file: %s ...",
-			       getenv(ENV_CACHAIN));
-		fflush(stdout);
+		if (VERBOSE) {
+			mbedtls_printf("  . Loading the CA root certificate from file: %s ...",
+				       getenv(ENV_CACHAIN));
+			fflush(stdout);
+		}
 
 		ret = mbedtls_x509_crt_parse_file(&ctx->cacert, getenv(ENV_CACHAIN));
 		if( ret < 0 )
 		{
-			mbedtls_printf( " failed\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n",
-					-ret );
+			mbedtls_printf( " failed to load cert %s\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n",
+					getenv(ENV_CACHAIN), -ret );
 			goto exit;
 		}
-		mbedtls_printf(" ok\n");
+		if (VERBOSE)
+			mbedtls_printf(" ok\n");
 	} else {
-		mbedtls_printf("  . Loading the CA root certificate ...");
-		fflush(stdout);
+		if (VERBOSE) {
+			mbedtls_printf("  . Loading the CA root certificate ...");
+			fflush(stdout);
+		}
 
 		// XXX: make it use our own certs
 		ret = mbedtls_x509_crt_parse( &ctx->cacert, (const unsigned char *) mbedtls_test_cas_pem,
 					      mbedtls_test_cas_pem_len );
 		if( ret < 0 )
 		{
-			mbedtls_printf( " failed\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n", -ret );
+			mbedtls_printf( " failed to parse internal test certs\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n", -ret );
 			goto exit;
 		}
-		mbedtls_printf( " ok (%d skipped)\n", ret );
+		if (VERBOSE)
+			mbedtls_printf( " ok (%d skipped)\n", ret );
 	}
 
 
 	/*
 	 * 1. Start the connection
 	 */
-	mbedtls_printf( "  . Connecting to tcp/%s/%d...", req->host, req->port );
-	fflush( stdout );
+	if (VERBOSE) {
+		mbedtls_printf( "  . Connecting to tcp/%s/%d...", req->host, req->port );
+		fflush( stdout );
+	}
 
 	sprintf(portc,"%d", req->port);
 	if( ( ret = mbedtls_net_connect( &ctx->server_fd, req->host,
 					 portc, MBEDTLS_NET_PROTO_TCP ) ) != 0 )
 	{
-		mbedtls_printf( " failed\n  ! mbedtls_net_connect returned %d\n\n", ret );
+		mbedtls_printf( " failed to connect to %s:%d\n  ! mbedtls_net_connect returned %d\n\n",
+				req->host, req->port, ret );
 		goto exit;
 	}
 
-	mbedtls_printf( " ok\n" );
+	if (VERBOSE)
+		mbedtls_printf( " ok\n" );
 
-	mbedtls_printf( "  . Setting up the SSL/TLS structure..." );
-	fflush( stdout );
+	if (VERBOSE) {
+		mbedtls_printf( "  . Setting up the SSL/TLS structure..." );
+		fflush( stdout );
+	}
 
 	if( ( ret = mbedtls_ssl_config_defaults( &ctx->conf,
 						 MBEDTLS_SSL_IS_CLIENT,
@@ -421,7 +439,8 @@ do_ctx_connect_tls (thttp_request_t *req,
 		goto exit;
 	}
 
-	mbedtls_printf( " ok\n" );
+	if (VERBOSE)
+		mbedtls_printf( " ok\n" );
 
 	/* XXX: FIXME
 	 * OPTIONAL is not optimal for security,
@@ -453,8 +472,10 @@ do_ctx_connect_tls (thttp_request_t *req,
 	/*
 	 * 4. Handshake
 	 */
-	mbedtls_printf( "  . Performing the SSL/TLS handshake..." );
-	fflush( stdout );
+	if (VERBOSE) {
+		mbedtls_printf( "  . Performing the SSL/TLS handshake..." );
+		fflush( stdout );
+	}
 
 	while( ( ret = mbedtls_ssl_handshake(&ctx->ssl)) != 0 )
 	{
@@ -465,12 +486,14 @@ do_ctx_connect_tls (thttp_request_t *req,
 		}
 	}
 
-	mbedtls_printf( " ok\n" );
+	if (VERBOSE)
+		mbedtls_printf( " ok\n" );
 
 	/*
 	 * 5. Verify the server certificate
 	 */
-	mbedtls_printf( "  . Verifying peer X.509 certificate..." );
+	if (VERBOSE)
+		mbedtls_printf( "  . Verifying peer X.509 certificate..." );
 
 	/* In real life, we probably want to bail out when ret != 0 */
 	if((flags = mbedtls_ssl_get_verify_result(&ctx->ssl))!= 0 ) {
@@ -479,7 +502,8 @@ do_ctx_connect_tls (thttp_request_t *req,
 		mbedtls_x509_crt_verify_info(vrfy_buf, sizeof( vrfy_buf ), "  ! ", flags);
 		mbedtls_printf("%s\n", vrfy_buf);
 	} else {
-		mbedtls_printf( " ok\n" );
+		if (VERBOSE)
+			mbedtls_printf( " ok\n" );
 	}
 exit:
 	return ret;

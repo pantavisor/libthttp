@@ -3,16 +3,17 @@ TARGETS = libtrail.a
 
 DEBUG := 0
 CFLAGS := -g 
+VERBOSE := $(DEBUG)
 
 other_DEFINES :=
 
-trest-example1_DEFINES := -DJSMN_PARENT_LINKS=1 -DDEBUG=$(DEBUG)
-trest-example1-tls_DEFINES := -DJSMN_PARENT_LINKS=1 -DDEBUG=$(DEBUG)
+trest-example1_DEFINES := -DJSMN_PARENT_LINKS=1 -DDEBUG=$(DEBUG) -DVERBOSE=$(VERBOSE)
+trest-example1-tls_DEFINES := -DJSMN_PARENT_LINKS=1 -DDEBUG=$(DEBUG) -DVERBOSE=$(VERBOSE)
 
-thttp-example1_DEFINES := -DDEBUG=$(DEBUG)
-thttp-example1-tls_DEFINES := -DDEBUG=$(DEBUG)
+thttp-example1_DEFINES := -DDEBUG=$(DEBUG) -DVERBOSE=$(VERBOSE)
+thttp-example1-tls_DEFINES := -DDEBUG=$(DEBUG) -DVERBOSE=$(VERBOSE)
 
-trail-example1_DEFINES := -DDEBUG=$(DEBUG)
+trail-example1_DEFINES := -DDEBUG=$(DEBUG) -DVERBOSE=$(VERBOSE)
 
 OBJDIR := $(BUILDDIR)
 

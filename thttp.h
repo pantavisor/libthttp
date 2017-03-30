@@ -4,6 +4,11 @@
 #define DEBUG 0
 #endif
 
+#ifndef VERBOSE
+#define VERBOSE 0
+#endif
+
+
 typedef struct thttp_request {
 	thttp_method_t method;
 	thttp_proto_t proto;
