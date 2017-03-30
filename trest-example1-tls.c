@@ -39,18 +39,6 @@ static char** splitstr(char* buf, const char *delim)
 	return res;
 }
 
-static void freestrv(char** strv) {
-	char **b = strv;
-	if (!b)
-		return;
-
-	while (*b) {
-		free (*b);
-		b++;
-	}
-	free (strv);
-}
-
 static int
 traverse_token (char *buf, jsmntok_t* tok, int t)
 {
@@ -211,6 +199,8 @@ main (char **argv, int argc)
 		goto exit;
 	}
 	printf(" OK\n");
+	if (1) {
+		goto exit;
 
 	printf("do trest_update_auth (run 1: user credentials) ...");
 	auth_status = trest_update_auth (userclient);
@@ -220,6 +210,7 @@ main (char **argv, int argc)
 		goto exit;
 	}
 	printf(" OK\n");
+}
 
 	for (i=0; i< 5; i++) {
 		sleep(1);
@@ -399,7 +390,7 @@ main (char **argv, int argc)
 
 exit:
 	if (cafiles)
-		freestrv(cafiles);
+		free(cafiles);
 	if (trail_steps_ep)
 		free(trail_steps_ep);
 	if (device_id)
