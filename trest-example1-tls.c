@@ -14,17 +14,17 @@
 #define DEFAULT_BADPASS "badpassword"
 #define DEFAULT_DEVICEPASS "device1"
 
-#define DEVICE_TRAIL_ENDPOINT_FMT "/api/trails/%s/steps"
+#define DEVICE_TRAIL_ENDPOINT_FMT "/trails/%s/steps"
 
 typedef void (*token_iter_f) (void *data, char *buf, jsmntok_t* tok, int c);
 
 #define BUF 256
 
-static char** splitstr(char* buf, const char *delim)
+static const char** splitstr(char* buf, const char *delim)
 {
 	char *tok;
 	int i = 0, s = 0;
-	char **res = 0;
+	const char **res = 0;
 
 	tok = strtok (buf, delim);
 	while (tok) {
@@ -121,7 +121,7 @@ main (char **argv, int argc)
 		req4a = 0, req5 = 0, req6 = 0;
 	const char *server_host;
 	char *cafile;
-	char **cafiles;
+	const char **cafiles;
 
 	server_host = getenv ("PANTAHUB_HOST") ? getenv ("PANTAHUB_HOST") :  DEFAULT_HOST;
 	cafile = getenv ("CAFILE") ? getenv ("CAFILE") :  0;
@@ -199,10 +199,8 @@ main (char **argv, int argc)
 		goto exit;
 	}
 	printf(" OK\n");
-	if (1) {
-		goto exit;
 
-	printf("do trest_update_auth (run 1: user credentials) ...");
+	printf("do trest_update_auth (run 1: update auth) ...");
 	auth_status = trest_update_auth (userclient);
 	if (auth_status != TREST_AUTH_STATUS_OK) {
 		printf (" ERROR (!auth_status: %d)\n", auth_status);
@@ -210,7 +208,7 @@ main (char **argv, int argc)
 		goto exit;
 	}
 	printf(" OK\n");
-}
+
 
 	for (i=0; i< 5; i++) {
 		sleep(1);
@@ -227,7 +225,7 @@ main (char **argv, int argc)
 
 	printf("do_json_request: userclient to create device ... ");
 	req1 = trest_make_request (TREST_METHOD_POST,
-				   "/api/devices/",
+				   "/devices/",
 				   0, // queries
 				   0, // headers
 				   "{ \"secret\": \""
