@@ -315,6 +315,8 @@ do_ctx_connect_tls (thttp_request_t *req,
 	int ret = 0;
 	char portc[16];
 	uint32_t flags;
+	thttp_request_tls_t *tls_req = (thttp_request_tls_t*) req;
+
 #if defined(MBEDTLS_DEBUG_C)
 	mbedtls_debug_set_threshold( DEBUG_LEVEL );
 #endif
@@ -345,8 +347,24 @@ do_ctx_connect_tls (thttp_request_t *req,
 	/*
 	 * 0. Initialize certificates
 	 */
-	/* XXX: dopnt use the env here, but rather in example and set the cert file in request obj */
-	if (getenv(ENV_CACHAIN)) {
+	if (tls_req->crtfiles) {
+		char **buf = tls_req->crtfiles;
+		while (*buf) {
+			mbedtls_printf("  . Loading the CA root certificate from file: %s ...",
+				       *buf);
+			fflush(stdout);
+
+			ret = mbedtls_x509_crt_parse_file(&ctx->cacert, *buf);
+			if( ret < 0 )
+			{
+				mbedtls_printf( " failed\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n",
+						-ret );
+				goto exit;
+			}
+			mbedtls_printf(" ok\n");
+			buf++;
+		}
+	} else if (getenv(ENV_CACHAIN)) {
 		mbedtls_printf("  . Loading the CA root certificate from file: %s ...",
 			       getenv(ENV_CACHAIN));
 		fflush(stdout);
