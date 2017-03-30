@@ -55,7 +55,7 @@ int main (char **argv, int argc) {
 	req->proto_version = THTTP_PROTO_VERSION_10;
 	req->host = "localhost";
 	req->port = 12365;
-	req->path = "/api/auth/login";
+	req->path = "/auth/login";
 	req->headers = 0;
 	req->body =
 		"{"
@@ -108,7 +108,7 @@ again:
 	req->proto_version = THTTP_PROTO_VERSION_10;
 	req->host = "localhost";
 	req->port = 12365;
-	req->path = "/api/auth/login";
+	req->path = "/auth/login";
 	req->headers = 0;
 	req->body =
 		"{"
