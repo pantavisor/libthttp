@@ -424,7 +424,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 		goto exit;
 	}
 
-	if ((ret = mbedtls_ssl_set_hostname( &ctx->ssl, "api.pantahub.com" )) != 0)
+	if ((ret = mbedtls_ssl_set_hostname( &ctx->ssl, req->host )) != 0)
 	{
 		mbedtls_printf( " failed\n  ! mbedtls_ssl_set_hostname returned %d\n\n", ret );
 		goto exit;
