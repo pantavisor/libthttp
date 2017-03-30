@@ -105,11 +105,11 @@ main (char **argv, int argc)
 	server_host = getenv ("PANTAHUB_HOST") ? getenv ("PANTAHUB_HOST") :  DEFAULT_HOST;
 	cafile = getenv ("CAFILE") ? getenv ("CAFILE") :  0;
 
-	if (cafile) {
-		cafiles = malloc (sizeof(char*) * 2);
-		cafiles[0] = cafile;
-		cafiles[1] = 0;
-	}
+	printf("CAFILE: %s\n", cafile);
+
+	cafiles = malloc (sizeof(char*) * 2);
+	cafiles[0] = cafile;
+	cafiles[1] = 0;
 
 	printf ("PANTAHUB_HOST: %s\n", server_host);
 	printf ("CAFILE: %s\n", cafile);
