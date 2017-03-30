@@ -110,7 +110,7 @@ do_refresh_login (struct trest *self)
 		printf ("refresh login with: %s\n", h[0]);
 
 	trest_request_ptr p = trest_make_request (TREST_METHOD_GET,
-						  "/api/auth/login",
+						  "/auth/login",
 						  NULL,
 						  h,
 						  NULL);
@@ -156,7 +156,7 @@ do_credentials_login (struct trest *self)
 		printf ("do_credentials_login with body : %s\n", b);
 
 	p = trest_make_request (TREST_METHOD_POST,
-				"/api/auth/login",
+				"/auth/login",
 				NULL,
 				NULL,
 				b);

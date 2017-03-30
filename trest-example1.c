@@ -130,9 +130,9 @@ int main (char **argv, int argc)
 	printf(" OK\n");
 
 
-	printf("make json_request for /api/auth/login ...");
+	printf("make json_request for /auth/login ...");
 	req = trest_make_request (TREST_METHOD_POST,
-				  "/api/auth/login",
+				  "/auth/login",
 				  0, // queries
 				  0, // headers
 				  "{ username: \""
