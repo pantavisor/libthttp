@@ -18,6 +18,39 @@
 
 typedef void (*token_iter_f) (void *data, char *buf, jsmntok_t* tok, int c);
 
+#define BUF 256
+
+static char** splitstr(char* buf, const char *delim)
+{
+	char *tok;
+	int i = 0, s = 0;
+	char **res = 0;
+
+	tok = strtok (buf, delim);
+	while (tok) {
+		if (i+1 >= s) {
+			s+=BUF;
+			res = realloc(res, sizeof(char*) * s);
+		}
+		res[i++] = tok;
+		res[i] = 0;
+		tok = strtok (NULL, delim);
+	}
+	return res;
+}
+
+static void freestrv(char** strv) {
+	char **b = strv;
+	if (!b)
+		return;
+
+	while (*b) {
+		free (*b);
+		b++;
+	}
+	free (strv);
+}
+
 static int
 traverse_token (char *buf, jsmntok_t* tok, int t)
 {
@@ -99,17 +132,15 @@ main (char **argv, int argc)
 	trest_request_ptr req = 0, req1 = 0, req2 = 0, req3 = 0, req4 = 0,
 		req4a = 0, req5 = 0, req6 = 0;
 	const char *server_host;
-	const char *cafile;
-	const char **cafiles;
+	char *cafile;
+	char **cafiles;
 
 	server_host = getenv ("PANTAHUB_HOST") ? getenv ("PANTAHUB_HOST") :  DEFAULT_HOST;
 	cafile = getenv ("CAFILE") ? getenv ("CAFILE") :  0;
 
 	printf("CAFILE: %s\n", cafile);
 
-	cafiles = malloc (sizeof(char*) * 2);
-	cafiles[0] = cafile;
-	cafiles[1] = 0;
+	cafiles = splitstr(cafile, ",");
 
 	printf ("PANTAHUB_HOST: %s\n", server_host);
 	printf ("CAFILE: %s\n", cafile);
@@ -368,7 +399,7 @@ main (char **argv, int argc)
 
 exit:
 	if (cafiles)
-		free(cafiles);
+		freestrv(cafiles);
 	if (trail_steps_ep)
 		free(trail_steps_ep);
 	if (device_id)
