@@ -97,8 +97,16 @@ do_refresh_login (struct trest *self)
 {
 	const char *htmpl = "Authorization: Bearer %s";
 	trest_response_ptr r;
-	char **h = malloc (sizeof(char*) * 2);
+	char **h;
 
+	// for start lets clear access_token if set
+	if (self->access_token) {
+		free(self->access_token);
+		self->access_token=0;
+	}
+
+	// now lets construct special Authorization Bearer from refresh_token
+	h = malloc (sizeof(char*) * 2);
 	h[0] = malloc (sizeof(char) *
 		       (strlen(htmpl)
 			+ strlen (self->refresh_token)));
