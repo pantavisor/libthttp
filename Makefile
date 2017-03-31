@@ -52,13 +52,14 @@ LIBTRAIL_PREREQ := \
 	trail.c trail.h \
 
 V := 1
-MAKEFLAGS += -V=1
 
 LIBTRAIL_SRCS := $(filter %.c, $(LIBTRAIL_PREREQ))
 LIBTRAIL_OBJS := $(addprefix $(OBJDIR)/, $(LIBTRAIL_SRCS:.c=.o))
 
+SRCDIR ?= $(PWD)
+
 $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l)):
-	CFLAGS="-I$(PWD)/$(MBEDTLS_DIR)/configs/ -DMBEDTLS_CONFIG_FILE='<$(MBEDTLS_PROFILE).h>'" \
+	CFLAGS="-I$(SRCDIR)/$(MBEDTLS_DIR)/configs/ -DMBEDTLS_CONFIG_FILE='<$(MBEDTLS_PROFILE).h>'" \
 		make -C $(MBEDTLS_DIR)/library $(MAKEFLAGS) $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
 
 thttp-example1: $(LIBTHTTP_PREREQ) thttp-example1.c $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
@@ -93,10 +94,6 @@ clean:
 	make -C $(MBEDTLS_DIR)/library clean $(MAKEFLAGS)
 	rm -f $(addprefix $(OBJDIR)/, $(TARGETS)) $(LIBTRAIL_OBJS) $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l)) $(OBJDIR)/mbedtls/*.o
 
-#install:
-#	install -d $(DESTDIR)$(PREFIX)/bin
-#	install -D $(TARGETS) $(DESTDIR)$(PREFIX)/bin/
-
 install:
 	install -d $(DESTDIR)$(PREFIX)/lib $(DESTDIR)$(PREFIX)/usr/include/jsmn
 	install -d $(DESTDIR)$(PREFIX)/lib $(DESTDIR)$(PREFIX)/usr/include/mbedtls
@@ -109,6 +106,8 @@ install:
 	install -D jsmn/jsmn.h $(DESTDIR)$(PREFIX)/usr/include/jsmn/
 	install -D jsmn/jsmnutil.h $(DESTDIR)$(PREFIX)/usr/include/jsmn/
 	install -D mbedtls-2.3.0/include/mbedtls/sha256.h $(DESTDIR)$(PREFIX)/usr/include/mbedtls/
+	install -d $(CONFIG_PREFIX)/certs
+	cp certs/* $(CONFIG_PREFIX)/certs/
 
 uninstall:
 	rm -f $(foreach t,$(TARGETS),$(DESTDIR)$(PREFIX)/bin/$(t))
