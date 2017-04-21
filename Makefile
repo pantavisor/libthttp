@@ -1,8 +1,8 @@
-#TARGETS = thttp-example1 thttp-example1-tls trest-example1 trest-example1-tls trail-example1 libtrail.a
-TARGETS = libtrail.a
+TARGETS = thttp-example1 thttp-example1-tls trest-example1 trest-example1-tls trail-example1 libtrail.a
+#TARGETS = libtrail.a
 
 DEBUG := 0
-CFLAGS := -g 
+CFLAGS := -g
 VERBOSE := $(DEBUG)
 
 other_DEFINES :=

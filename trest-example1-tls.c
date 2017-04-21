@@ -7,8 +7,8 @@
 #include "trest.h"
 #include "jsmn/jsmnutil.h"
 
-#define DEFAULT_HOST "localhost"
-#define DEFAULT_PORT 12366
+#define DEFAULT_HOST "api.pantahub.com"
+#define DEFAULT_PORT 443
 #define DEFAULT_USER "user1"
 #define DEFAULT_USERPASS "user1"
 #define DEFAULT_BADPASS "badpassword"

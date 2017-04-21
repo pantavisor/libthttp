@@ -53,8 +53,8 @@ int main (char **argv, int argc) {
 	req->method = THTTP_METHOD_POST;
 	req->proto = THTTP_PROTO_HTTP;
 	req->proto_version = THTTP_PROTO_VERSION_10;
-	req->host = "localhost";
-	req->port = 12366;
+	req->host = "api.pantahub.com";
+	req->port = 443;
 	req->path = "/auth/login";
 	req->headers = 0;
 	req->body =
@@ -103,19 +103,15 @@ again:
 
 	req = thttp_request_new_0 ();
 
-	req->method = THTTP_METHOD_POST;
+	req->method = THTTP_METHOD_GET;
 	req->proto = THTTP_PROTO_HTTP;
 	req->proto_version = THTTP_PROTO_VERSION_10;
-	req->host = "localhost";
-	req->port = 12365;
-	req->path = "/auth/login";
+	req->host = "api.pantahub.com";
+	req->port = 443;
+	req->path = "/local-s3/51d24ff501bbb666ca0625514577440696b7ccb7f7c8fcba7a04b421f9ae86a1";
 	req->headers = 0;
-	req->body =
-		"{"
-		"	\"username\": \"user1\","
-		"	\"password\": \"user1\""
-		"}";
-	req->body_content_type = "application/json";
+	req->body = "";
+	req->body_content_type = "";
 
 	int fd;
 	char name[] = "/tmp/fileXXXXXX";

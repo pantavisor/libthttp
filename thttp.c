@@ -667,7 +667,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	struct _req_ctx_plain ctx_plain;
 	struct _req_ctx_tls ctx_tls;
 	unsigned char *reqbuf = 0;
-	unsigned char resbuf[1024];
+	unsigned char resbuf[4*8192];
 
 	memset(&ctx_plain, 0, sizeof(ctx_plain));
 	memset(&ctx_tls, 0, sizeof(ctx_tls));
