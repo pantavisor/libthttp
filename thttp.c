@@ -601,9 +601,10 @@ do_ctx_tls_read(thttp_request_t* req,
 {
 	int ret = -1;
 
-	if(DEBUG)
+	if(DEBUG) {
 		mbedtls_printf( "  < Read from server:" );
-	fflush(stdout);
+		fflush(stdout);
+	}
 
 	len = sizeof (buf) - 1;
 	memset(buf, 0, sizeof(buf));
@@ -695,21 +696,21 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 
 	parser->out = calloc(sizeof(thttp_response_t), 1);
 
-	if (DEBUG)
+	if (DEBUG) {
 		printf("Connecting to tcp/%s/%4d...", req->host,
 		       req->port);
-
-	fflush (stdout);
+		fflush (stdout);
+	}
 
 	if(ret = do_ctx_connect(req, &ctx_plain, &ctx_tls) < 0) {
 		printf ("ERROR: failed\n  ! connect returned %d\n\n", ret);
 		goto exit_connect;
 	}
 
-	if (DEBUG)
+	if (DEBUG){
 		printf ("Write to server:\n");
-
-	fflush (stdout);
+		fflush (stdout);
+	}
 
 	len = make_http_req(req, &reqbuf);
 
@@ -726,7 +727,6 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	struct http_roundtripper rt;
 	http_init(&rt, _http_response_funcs, parser);
 
-	fflush(stdout);
 	memset(resbuf, 0, sizeof(resbuf));
 
 	int needmore = 1;
