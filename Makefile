@@ -106,6 +106,8 @@ install:
 	install -D jsmn/jsmn.h $(DESTDIR)$(PREFIX)/usr/include/jsmn/
 	install -D jsmn/jsmnutil.h $(DESTDIR)$(PREFIX)/usr/include/jsmn/
 	install -D mbedtls-2.3.0/include/mbedtls/sha256.h $(DESTDIR)$(PREFIX)/usr/include/mbedtls/
+	install -D mbedtls-2.3.0/include/mbedtls/config.h $(DESTDIR)$(PREFIX)/usr/include/mbedtls/
+	install -D mbedtls-2.3.0/include/mbedtls/check_config.h $(DESTDIR)$(PREFIX)/usr/include/mbedtls/
 	install -d $(CONFIG_PREFIX)/certs
 	cp certs/* $(CONFIG_PREFIX)/certs/
 

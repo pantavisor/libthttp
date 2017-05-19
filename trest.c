@@ -28,7 +28,6 @@
 #include "jsmn/jsmnutil.h"
 #include "jsmn/jsmn.h"
 #include "trest.h"
-#include "thttp.h"
 
 enum trest_rtype {
 	trest_rtype_JSON =1,

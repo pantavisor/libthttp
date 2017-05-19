@@ -19,6 +19,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
+#ifndef THTTP_H
+#define THTTP_H
+
 #include "thttp-enums.h"
 
 #ifndef DEBUG
@@ -112,3 +116,5 @@ thttp_string_to_method (char *string);
 
 const char*
 thttp_method_to_string (thttp_proto_t proto);
+
+#endif // THTTP_H

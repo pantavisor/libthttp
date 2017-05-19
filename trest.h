@@ -19,7 +19,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
+#ifndef TREST_H
+#define TREST_H
+
 #include "jsmn/jsmn.h"
+#include "thttp.h"
 
 typedef enum trest_auth_status {
 	TREST_AUTH_STATUS_OK = 1,
@@ -47,7 +52,7 @@ typedef struct trest_response {
 
 	char *body;
 	char **headers;
-	int code;
+	thttp_status_t code;
 
 	jsmntok_t *json_tokv;
 	int json_toks; // size of buffer
@@ -127,3 +132,5 @@ trest_do_request (trest_ptr client,
 trest_response_ptr
 trest_do_json_request (trest_ptr client,
 		       trest_request_ptr);
+
+#endif // TREST_H
