@@ -78,12 +78,12 @@ int
 jsmnutil_parse_json (const char *buf, jsmntok_t **jsonv_out, int *jsons_out)
 {
 	jsmn_parser parser;
-	int r;
+	int r, offset;
 
 	jsmn_init (&parser);
 
 	*jsons_out=10;
-	*jsonv_out = malloc (*jsons_out * sizeof(jsmntok_t));
+	*jsonv_out = calloc(1, *jsons_out * sizeof(jsmntok_t));
 
 	if (*jsonv_out == NULL) {
 		fprintf(stderr, "malloc(): errno=%d\n", errno);
@@ -95,9 +95,11 @@ again:
 
 	if (r < 0) {
 		if (r == JSMN_ERROR_NOMEM) {
+			offset = *jsons_out;
 			*jsons_out = *jsons_out * 2;
 			*jsonv_out = realloc(*jsonv_out, sizeof(jsmntok_t)
 					     * *jsons_out);
+			memset(*jsonv_out+offset, 0, sizeof(jsmntok_t) * offset);
 			if (jsonv_out == NULL) {
 				return 0;
 			}
