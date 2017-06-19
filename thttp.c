@@ -736,7 +736,8 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 		ret = do_ctx_read(req, &ctx_plain, &ctx_tls, resbuf, len);
 
 		if(ret <= 0) {
-			printf ("\n---FINISHED or FAILED: ssl_read returned %d\n\n", ret);
+			if (DEBUG)
+				printf ("\n---FINISHED or FAILED: ssl_read returned %d\n\n", ret);
 			break;
 		}
 
