@@ -25,8 +25,10 @@ MBEDTLS_LIBS := \
 	$(NULL)
 MBEDTLS_PROFILE := config-mini-tls1_1
 
-MBEDTLS_CFLAGS := -I$(MBEDTLS_DIR)/configs/ \
-	-I$(MBEDTLS_DIR)/include/ \
+SRCDIR ?= $(PWD)
+MBEDTLS_CFLAGS := -I$(SRCDIR)/$(MBEDTLS_DIR)/configs/ \
+	-I$(SRCDIR)/$(MBEDTLS_DIR)/include/ \
+	-DMBEDTLS_SSL_SERVER_NAME_INDICATION \
 	-DMBEDTLS_CONFIG_FILE='<$(MBEDTLS_PROFILE).h>' \
 	$(other_DEFINES) \
 	$(NULL)
@@ -56,29 +58,27 @@ V := 1
 LIBTRAIL_SRCS := $(filter %.c, $(LIBTRAIL_PREREQ))
 LIBTRAIL_OBJS := $(addprefix $(OBJDIR)/, $(LIBTRAIL_SRCS:.c=.o))
 
-SRCDIR ?= $(PWD)
-
-$(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l)):
-	CFLAGS="-I$(SRCDIR)/$(MBEDTLS_DIR)/configs/ -DMBEDTLS_CONFIG_FILE='<$(MBEDTLS_PROFILE).h>'" \
+mbedtlslibs:
+	CFLAGS="$(MBEDTLS_CFLAGS)" \
 		make -C $(MBEDTLS_DIR)/library $(MAKEFLAGS) $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
 
-thttp-example1: $(LIBTHTTP_PREREQ) thttp-example1.c $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
+thttp-example1: $(LIBTHTTP_PREREQ) thttp-example1.c mbedtlslibs
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) -o $(OBJDIR)/$@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
-thttp-example1-tls: $(LIBTHTTP_PREREQ) thttp-example1-tls.c $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
+thttp-example1-tls: $(LIBTHTTP_PREREQ) thttp-example1-tls.c mbedtlslibs
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) -o $@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
-trest-example1: $(LIBTREST_PREREQ) trest-example1.c $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
+trest-example1: $(LIBTREST_PREREQ) trest-example1.c mbedtlslibs
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -o $@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
-trest-example1-tls: $(LIBTREST_PREREQ) trest-example1-tls.c $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
+trest-example1-tls: $(LIBTREST_PREREQ) trest-example1-tls.c mbedtlslibs
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -o $@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
-trail-example1: $(LIBTRAIL_PREREQ) trail-example1.c $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
+trail-example1: $(LIBTRAIL_PREREQ) trail-example1.c mbedtlslibs
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -o $@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
 
@@ -86,9 +86,9 @@ $(OBJDIR)/%.o: %.c
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) $($@_DEFINES) -c $< -o $@
 
-libtrail.a: $(LIBTRAIL_OBJS) $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
+libtrail.a: $(LIBTRAIL_OBJS) mbedtlslibs
 	echo $^
-	$(AR) rcs $(OBJDIR)/$@ $^
+	$(AR) rcs $(OBJDIR)/$@ $(LIBTRAIL_OBJS) $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
 
 clean:
 	make -C $(MBEDTLS_DIR)/library clean $(MAKEFLAGS)
