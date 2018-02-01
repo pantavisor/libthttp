@@ -56,9 +56,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "thttp.h"
 #include "tinyhttp/http.h"
@@ -327,13 +329,72 @@ static void my_debug (void *ctx, int level,
 	fflush((FILE *) ctx);
 }
 
+static int
+_sock_connect (mbedtls_net_context *ctx,
+		   char *host, char *port)
+{
+	int ret, fd, flags;
+	struct addrinfo hints, *result, *rp;
+	struct sockaddr_in *addr;
+	struct timeval tv;
+	socklen_t len;
+	fd_set fdset;
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family |= AF_INET;
+
+	if (getaddrinfo(host, port, &hints, &result))
+		return -1;
+
+	rp = result;
+	while (rp) {
+		fd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+		fcntl(fd, F_SETFL, O_NONBLOCK);
+
+		ret = connect(fd, rp->ai_addr, rp->ai_addrlen);
+		if (!ret)
+			break;
+
+		if (errno != EINPROGRESS)
+			goto next;
+
+		tv.tv_sec = 2;
+		tv.tv_usec = 0;
+
+		FD_ZERO(&fdset);
+		FD_SET(fd, &fdset);
+
+		if (select(fd + 1, 0, &fdset, 0, &tv) <= 0)
+			goto next;
+
+		len = sizeof(ret);
+		getsockopt(fd, SOL_SOCKET, SO_ERROR, &ret, &len);
+
+		if (!ret)
+			break;
+
+next:
+		close(fd);
+		rp = rp->ai_next;
+	}
+out:
+	if (result)
+		freeaddrinfo(result);
+	if (fd) {
+		flags = fcntl(fd, F_GETFL, NULL);
+  		flags &= (~O_NONBLOCK);
+  		fcntl(fd, F_SETFL, flags);
+	}
+
+	return fd;
+}
 
 static int
 do_ctx_connect_tls (thttp_request_t *req,
 		    struct _req_ctx_tls *ctx)
 {
 	const char *pers = "thttp_client";
-	int ret = 0;
+	int ret = 0, fd;
 	char portc[16];
 	uint32_t flags;
 	thttp_request_tls_t *tls_req = (thttp_request_tls_t*) req;
@@ -435,13 +496,15 @@ do_ctx_connect_tls (thttp_request_t *req,
 	}
 
 	sprintf(portc,"%d", req->port);
-	if( ( ret = mbedtls_net_connect( &ctx->server_fd, req->host,
-					 portc, MBEDTLS_NET_PROTO_TCP ) ) != 0 )
+	if( ( fd = _sock_connect(&ctx->server_fd, req->host,
+			portc ) ) == -1 )
 	{
-		mbedtls_printf( " failed to connect to %s:%d\n  ! mbedtls_net_connect returned %d\n\n",
-				req->host, req->port, ret );
+		mbedtls_printf( " failed to connect to %s:%d\n  ! mbedtls_net_connect fd=%d\n\n",
+				req->host, req->port, fd );
 		goto exit;
 	}
+
+	ctx->server_fd.fd = fd;
 
 	if (VERBOSE)
 		mbedtls_printf( " ok\n" );
