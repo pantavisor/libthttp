@@ -65,7 +65,7 @@
 #include "thttp.h"
 #include "tinyhttp/http.h"
 
-#define BUF_BLOCKSIZE 1024
+#define BUF_BLOCKSIZE 8192
 #define ENV_CACHAIN "THTTP_CAFILE" // XXX: this has to go away; example should put the file in request
 
 struct http_response_parser {
@@ -669,8 +669,7 @@ do_ctx_tls_read(thttp_request_t* req,
 		fflush(stdout);
 	}
 
-	len = sizeof (buf) - 1;
-	memset(buf, 0, sizeof(buf));
+	memset(buf, 0, len);
 	ret = mbedtls_ssl_read(&ctx->ssl, buf, len);
 
 	if(ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE)
@@ -795,7 +794,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	int needmore = 1;
 	while (needmore) {
 		unsigned char* data = resbuf;
-		len = sizeof(resbuf) - 1;
+		len = sizeof(resbuf);
 		ret = do_ctx_read(req, &ctx_plain, &ctx_tls, resbuf, len);
 
 		if(ret <= 0) {
