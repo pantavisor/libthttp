@@ -44,11 +44,11 @@ typedef struct thttp_request {
 	char *host;
 	int port;
 
-	int fd;
-	int len;
-
 	char *path;
 	char **headers;
+
+	int fd;
+	int len;
 
 	char *body;
 	char *body_content_type;

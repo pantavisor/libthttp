@@ -233,6 +233,7 @@ thttp_request_t*
 thttp_request_new_0()
 {
 	thttp_request_t *self = calloc (sizeof(thttp_request_tls_t), 1);
+	self->fd = 0;
 	self->is_tls=0;
 
 	return (thttp_request_t*) self;
@@ -757,7 +758,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	struct _req_ctx_plain ctx_plain;
 	struct _req_ctx_tls ctx_tls;
 	unsigned char *reqbuf = 0;
-	unsigned char filebuf[BUF_BLOCKSIZE];
+	unsigned char filebuf[4096];
 	unsigned char resbuf[4*8192];
 
 	memset(&ctx_plain, 0, sizeof(ctx_plain));
@@ -794,7 +795,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	}
 
 	if (req->fd) {
-	while (req->fd && ((bytes = read(req->fd, filebuf, BUF_BLOCKSIZE)) > 0)) {
+	while (req->fd && ((bytes = read(req->fd, filebuf, 4096)) > 0)) {
 		while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, filebuf, bytes)) <= 0) {
 			if (ret != 0) {
 				printf ("failed\n  ! write returned %d\n\n", ret);
