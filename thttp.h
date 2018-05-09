@@ -44,6 +44,9 @@ typedef struct thttp_request {
 	char *host;
 	int port;
 
+	int fd;
+	int len;
+
 	char *path;
 	char **headers;
 

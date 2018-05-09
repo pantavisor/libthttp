@@ -156,11 +156,17 @@ make_http_req (thttp_request_t *req, unsigned char **buf)
 		*buf = buf_append (*buf, &at, "\r\n", &bufsize);
 		*buf = buf_append (*buf, &at, "\r\n", &bufsize);
 		*buf = buf_append (*buf, &at, req->body, &bufsize);
+	} else if (req->fd) {
+		*buf = buf_append (*buf, &at, "Content-Length: ", &bufsize);
+		*buf = buf_append_int (*buf, &at, req->len, &bufsize);
+		*buf = buf_append (*buf, &at, "\r\n", &bufsize);
+		*buf = buf_append (*buf, &at, "Content-Type: ", &bufsize);
+		*buf = buf_append (*buf, &at, req->body_content_type, &bufsize);
+		*buf = buf_append (*buf, &at, "\r\n", &bufsize);
+		*buf = buf_append (*buf, &at, "\r\n", &bufsize);
 	} else {
 		*buf = buf_append (*buf, &at, "\r\n", &bufsize);
 	}
-	// GOGOGO
-	*buf = buf_append (*buf, &at, "\r\n", &bufsize);
 
 	return at;
 }
@@ -747,10 +753,11 @@ do_ctx_close(thttp_request_t* req,
 static int
 thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *parser)
 {
-	int ret, len;
+	int ret, len, bytes;
 	struct _req_ctx_plain ctx_plain;
 	struct _req_ctx_tls ctx_tls;
 	unsigned char *reqbuf = 0;
+	unsigned char filebuf[BUF_BLOCKSIZE];
 	unsigned char resbuf[4*8192];
 
 	memset(&ctx_plain, 0, sizeof(ctx_plain));
@@ -784,6 +791,17 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 			printf ("failed\n  ! write returned %d\n\n", ret);
 			goto exit_write;
 		}
+	}
+
+	if (req->fd) {
+	while (req->fd && ((bytes = read(req->fd, filebuf, BUF_BLOCKSIZE)) > 0)) {
+		while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, filebuf, bytes)) <= 0) {
+			if (ret != 0) {
+				printf ("failed\n  ! write returned %d\n\n", ret);
+				goto exit_write;
+			}
+		}
+	}
 	}
 
 	struct http_roundtripper rt;
