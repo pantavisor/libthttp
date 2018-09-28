@@ -627,14 +627,21 @@ do_ctx_tls_write(thttp_request_t* req,
 		 char *buf,
 		 int len)
 {
+	int at = 0, size = 0;
 	int ret;
-	while((ret = mbedtls_ssl_write( &ctx->ssl, buf, len)) <= 0) {
-		if( ret != MBEDTLS_ERR_SSL_WANT_READ &&
+
+	size = len > BUF_BLOCKSIZE ? BUF_BLOCKSIZE : len;
+	while( (len) > 0 ) {
+		ret = mbedtls_ssl_write( &ctx->ssl, buf+at, size);
+		if( (ret < 0) && ret != MBEDTLS_ERR_SSL_WANT_READ &&
 		    ret != MBEDTLS_ERR_SSL_WANT_WRITE )
 		{
 			mbedtls_printf( " failed\n  ! mbedtls_ssl_write returned %d\n\n", ret );
 			goto exit;
 		}
+		at += ret;
+		len -= ret;
+		size = len > BUF_BLOCKSIZE ? BUF_BLOCKSIZE : len;
 	}
 exit:
 	return ret;
