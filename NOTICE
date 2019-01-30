@@ -3,7 +3,7 @@ PantaVisor(TM) libhttpc - Copyright 2016-2017 Pantacor Ltd.
 This product includes software developed by Pantacor Ltd.
 (http://www.pantacor.com)
 
-This product bundles mbedtls-2.3.0 licensed under APACHE-2.0.
+This product bundles mbedtls-2.16.0 licensed under APACHE-2.0.
 
 This product bundles jsmn which uses MIT license.
 
