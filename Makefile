@@ -16,8 +16,9 @@ thttp-example1-tls_DEFINES := -DDEBUG=$(DEBUG) -DVERBOSE=$(VERBOSE)
 trail-example1_DEFINES := -DDEBUG=$(DEBUG) -DVERBOSE=$(VERBOSE)
 
 OBJDIR := $(BUILDDIR)
+MBEDTLS_VERSION := 2.16.0
 
-MBEDTLS_DIR := mbedtls-2.3.0
+MBEDTLS_DIR := mbedtls-$(MBEDTLS_VERSION)
 MBEDTLS_LIBS := \
 	libmbedtls.a \
 	libmbedx509.a \
@@ -60,8 +61,9 @@ LIBTRAIL_OBJS := $(addprefix $(OBJDIR)/, $(LIBTRAIL_SRCS:.c=.o))
 
 mbedtlslibs:
 	CFLAGS="$(MBEDTLS_CFLAGS)" \
-		make -C $(MBEDTLS_DIR)/library $(MAKEFLAGS) $(foreach l, $(MBEDTLS_LIBS), $(OBJDIR)/$(l))
-
+		make -C $(MBEDTLS_DIR)/library $(MAKEFLAGS) $(MBEDTLS_LIBS)
+	cp -fv $(MBEDTLS_DIR)/library/*.a $(OBJDIR)/
+	make -C $(MBEDTLS_DIR)/library clean
 thttp-example1: $(LIBTHTTP_PREREQ) thttp-example1.c mbedtlslibs
 	$(CC) $(CFLAGS) $(MBEDTLS_CFLAGS) -o $(OBJDIR)/$@ \
 		$(filter %.c, $^) $(MBEDTLS_LDFLAGS)
@@ -105,9 +107,9 @@ install:
 	install -D thttp-enums.h $(DESTDIR)$(PREFIX)/usr/include/
 	install -D jsmn/jsmn.h $(DESTDIR)$(PREFIX)/usr/include/jsmn/
 	install -D jsmn/jsmnutil.h $(DESTDIR)$(PREFIX)/usr/include/jsmn/
-	install -D mbedtls-2.3.0/include/mbedtls/sha256.h $(DESTDIR)$(PREFIX)/usr/include/mbedtls/
-	install -D mbedtls-2.3.0/include/mbedtls/config.h $(DESTDIR)$(PREFIX)/usr/include/mbedtls/
-	install -D mbedtls-2.3.0/include/mbedtls/check_config.h $(DESTDIR)$(PREFIX)/usr/include/mbedtls/
+	install -D mbedtls-$(MBEDTLS_VERSION)/include/mbedtls/sha256.h $(DESTDIR)$(PREFIX)/usr/include/mbedtls/
+	install -D mbedtls-$(MBEDTLS_VERSION)/include/mbedtls/config.h $(DESTDIR)$(PREFIX)/usr/include/mbedtls/
+	install -D mbedtls-$(MBEDTLS_VERSION)/include/mbedtls/check_config.h $(DESTDIR)$(PREFIX)/usr/include/mbedtls/
 	install -d $(CONFIG_PREFIX)/certs
 	cp certs/* $(CONFIG_PREFIX)/certs/
 
