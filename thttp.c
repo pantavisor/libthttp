@@ -690,7 +690,8 @@ do_ctx_tls_read(thttp_request_t* req,
 		return -2; // XXX: make proper enum or something for AGAIN
 
 	if(ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
-		mbedtls_printf("failed\n  ! mbedtls_ssl_read failed with MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY\n\n");
+		if (DEBUG)
+			mbedtls_printf("failed\n  ! mbedtls_ssl_read failed with MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY\n\n");
 		return -1;
 	}
 
