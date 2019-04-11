@@ -340,7 +340,7 @@ static int
 _sock_connect (mbedtls_net_context *ctx,
 		   char *host, char *port)
 {
-	int ret, fd, flags;
+	int ret, fd = -1, flags;
 	struct addrinfo hints, *result, *rp;
 	struct sockaddr_in *addr;
 	struct timeval tv;
@@ -356,6 +356,10 @@ _sock_connect (mbedtls_net_context *ctx,
 	rp = result;
 	while (rp) {
 		fd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+		
+		if (fd < 0)
+			goto next;
+
 		fcntl(fd, F_SETFL, O_NONBLOCK);
 
 		ret = connect(fd, rp->ai_addr, rp->ai_addrlen);
@@ -381,13 +385,19 @@ _sock_connect (mbedtls_net_context *ctx,
 			break;
 
 next:
-		close(fd);
+		if (fd >= 0)
+			close(fd);
+		fd = -1; /*Reset socket desc*/
 		rp = rp->ai_next;
 	}
 out:
 	if (result)
 		freeaddrinfo(result);
-	if (fd) {
+	/*
+	 * If we fail to connect to end point,
+	 * fd would be -1.
+	 * */
+	if (fd >= 0) {
 		flags = fcntl(fd, F_GETFL, NULL);
   		flags &= (~O_NONBLOCK);
   		fcntl(fd, F_SETFL, flags);
