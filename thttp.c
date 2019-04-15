@@ -411,11 +411,10 @@ do_ctx_connect_tls (thttp_request_t *req,
 		    struct _req_ctx_tls *ctx)
 {
 	const char *pers = "thttp_client";
-	int ret = 0, fd;
+	int ret = 0, fd = -1;
 	char portc[16];
 	uint32_t flags;
 	thttp_request_tls_t *tls_req = (thttp_request_tls_t*) req;
-
 #if defined(MBEDTLS_DEBUG_C)
 	mbedtls_debug_set_threshold( DEBUG_LEVEL );
 #endif
@@ -518,10 +517,12 @@ do_ctx_connect_tls (thttp_request_t *req,
 	{
 		mbedtls_printf( " failed to connect to %s:%d\n  ! mbedtls_net_connect fd=%d\n\n",
 				req->host, req->port, fd );
+		ret = fd;
 		goto exit;
 	}
 
 	ctx->server_fd.fd = fd;
+	mbedtls_net_set_nonblock(&ctx->server_fd);
 
 	if (VERBOSE)
 		mbedtls_printf( " ok\n" );
@@ -578,13 +579,29 @@ do_ctx_connect_tls (thttp_request_t *req,
 		fflush( stdout );
 	}
 
-	while( ( ret = mbedtls_ssl_handshake(&ctx->ssl)) != 0 )
-	{
-		if( ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE )
-		{
-			mbedtls_printf( " failed\n  ! mbedtls_ssl_handshake returned -0x%x\n\n", -ret );
-			goto exit;
+	do {
+		/*
+		 * TODO: Make 2000 (ms timeout) to a define.
+		 * */
+
+		ret = mbedtls_net_poll(&ctx->server_fd, 
+				MBEDTLS_NET_POLL_WRITE | MBEDTLS_NET_POLL_READ, 2000);
+		if ( !ret) {
+			if (VERBOSE)
+				mbedtls_printf("Nothing to read from ssl socket yet\n");
+			continue;
 		}
+
+		if ( ret != MBEDTLS_NET_POLL_WRITE && ret !=MBEDTLS_NET_POLL_READ)
+			goto exit;
+
+		ret = mbedtls_ssl_handshake(&ctx->ssl);
+
+	}while (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE);
+
+	if (ret) {
+		mbedtls_printf( " failed\n  ! mbedtls_ssl_handshake returned -0x%x\n\n", -ret );
+		goto exit;
 	}
 
 	if (VERBOSE)
@@ -606,7 +623,10 @@ do_ctx_connect_tls (thttp_request_t *req,
 		if (VERBOSE)
 			mbedtls_printf( " ok\n" );
 	}
+	return ret;
 exit:
+	if (fd >=0 )
+		close(fd);
 	return ret;
 }
 
@@ -639,22 +659,42 @@ do_ctx_tls_write(thttp_request_t* req,
 {
 	int at = 0, size = 0;
 	int ret;
+	int has_error = 0;
 
-	size = len > BUF_BLOCKSIZE ? BUF_BLOCKSIZE : len;
 	while( (len) > 0 ) {
-		ret = mbedtls_ssl_write( &ctx->ssl, buf+at, size);
-		if( (ret < 0) && ret != MBEDTLS_ERR_SSL_WANT_READ &&
-		    ret != MBEDTLS_ERR_SSL_WANT_WRITE )
-		{
-			mbedtls_printf( " failed\n  ! mbedtls_ssl_write returned %d\n\n", ret );
-			goto exit;
-		}
-		at += ret;
-		len -= ret;
 		size = len > BUF_BLOCKSIZE ? BUF_BLOCKSIZE : len;
+		int written = 0;
+		while (size > 0) {
+			/*
+			 * TODO: Make 2000 (ms timeout) to a define.
+			 * */
+			if ( mbedtls_net_poll(&ctx->server_fd, MBEDTLS_NET_POLL_WRITE, 2000)
+					!= MBEDTLS_NET_POLL_WRITE) {
+				break;
+			}
+			ret = mbedtls_ssl_write( &ctx->ssl, buf+at, size);
+			if (!ret)
+				break;
+
+			if(ret < 0) {
+				if (ret != MBEDTLS_ERR_SSL_WANT_WRITE &&
+						ret != MBEDTLS_ERR_SSL_WANT_READ) {
+					has_error = ret;
+					break;
+				}
+				else 
+					continue;
+			}
+			at += ret;
+			written += ret;
+			size -= ret;
+		}
+		len -= written;
+		if (!written || has_error)  /*Unable to write anything*/
+			break;
 	}
 exit:
-	return ret;
+	return has_error ? has_error : at;
 }
 
 static int
@@ -687,6 +727,7 @@ do_ctx_tls_read(thttp_request_t* req,
 		int len)
 {
 	int ret = -1;
+	int to_read = len;
 
 	if(DEBUG) {
 		mbedtls_printf( "  < Read from server:" );
@@ -694,31 +735,38 @@ do_ctx_tls_read(thttp_request_t* req,
 	}
 
 	memset(buf, 0, len);
-	ret = mbedtls_ssl_read(&ctx->ssl, buf, len);
 
-	if(ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE)
-		return -2; // XXX: make proper enum or something for AGAIN
+	while (len > 0) {
 
-	if(ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
-		if (DEBUG)
-			mbedtls_printf("failed\n  ! mbedtls_ssl_read failed with MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY\n\n");
-		return -1;
+		if ( mbedtls_net_poll(&ctx->server_fd, MBEDTLS_NET_POLL_READ, 2000)
+				!= MBEDTLS_NET_POLL_READ) {
+			mbedtls_printf("poll returned -ve value..\n");
+			break;
+		}
+		
+		ret = mbedtls_ssl_read(&ctx->ssl, buf , len);
+		
+		if (ret == 0 )
+			break;
+
+		else if (ret > 0) {
+			len -= ret;
+			buf += ret;
+		}
+		else {
+			if(ret == MBEDTLS_ERR_SSL_WANT_READ || 
+					ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
+				mbedtls_printf("will loop again\n");
+				continue; // XXX: make proper enum or something for AGAIN
+			}
+			else 
+				break;
+		}
 	}
-
-	if(ret < 0) {
-		mbedtls_printf("failed\n  ! mbedtls_ssl_read returned %d\n\n", ret);
-		return -1;
-	}
-
-	if(ret == 0) {
-		if (DEBUG)
-			mbedtls_printf("\n\nEOF\n\n");
-	}
-
 	if (DEBUG)
-		mbedtls_printf("%d bytes read\n\n%s", len, (char *) buf);
+		mbedtls_printf("%d bytes read\n\n%s", to_read, (char *) buf - (to_read - len));
 
-	return ret;
+	return to_read - len;
 }
 
 static int
