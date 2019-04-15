@@ -385,8 +385,7 @@ _sock_connect (mbedtls_net_context *ctx,
 			break;
 
 next:
-		if (fd >= 0)
-			close(fd);
+		close(fd);
 		fd = -1; /*Reset socket desc*/
 		rp = rp->ai_next;
 	}
@@ -625,8 +624,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 	}
 	return ret;
 exit:
-	if (fd >=0 )
-		close(fd);
+	close(fd);
 	return ret;
 }
 
