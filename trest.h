@@ -77,13 +77,15 @@ typedef void (*trest_cb) (void *user_data,
 trest_ptr
 trest_new_from_userpass(const char* host, int port,
 			const char *user,
-			const char *pass);
+			const char *pass,
+			const struct sockaddr *cached);
 
 trest_ptr
 trest_new_tls_from_userpass(const char* host, int port,
 			    const char *user,
 			    const char *pass,
-			    const char **ca_files);
+			    const char **ca_files,
+			    const struct sockaddr *cached);
 
 void
 trest_free (trest_ptr ptr);

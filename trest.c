@@ -29,6 +29,8 @@
 #include "jsmn/jsmn.h"
 #include "trest.h"
 
+#include <netinet/in.h>
+
 enum trest_rtype {
 	trest_rtype_JSON =1,
 	trest_rtype_BLOB,
@@ -54,6 +56,7 @@ struct trest {
 
 	int is_tls;
 	char **tls_cafiles;
+	struct sockaddr conn;
 };
 
 struct trest_request {
@@ -214,7 +217,8 @@ exit:
 trest_ptr
 trest_new_from_userpass(const char* host, int port,
 			const char *user,
-			const char *pass)
+			const char *pass,
+			const struct sockaddr *cached_sock)
 {
 	struct trest* client =
 		calloc (sizeof(struct trest), 1);
@@ -229,6 +233,9 @@ trest_new_from_userpass(const char* host, int port,
 	client->credentials[1] = strdup(pass);
 	client->credentials[2] = (char*) 0;
 
+	if (cached_sock)
+		memcpy(&client->conn, cached_sock, sizeof(*cached_sock));
+
 	return (trest_ptr) client;
 }
 
@@ -236,10 +243,11 @@ trest_ptr
 trest_new_tls_from_userpass(const char* host, int port,
 			    const char *user,
 			    const char *pass,
-			    const char **cafiles)
+			    const char **cafiles,
+			    const struct sockaddr *cached_sock)
 {
 	struct trest* client = (struct trest*)
-		trest_new_from_userpass(host, port, user, pass);
+		trest_new_from_userpass(host, port, user, pass, cached_sock);
 
 	const char **ci = cafiles;
 	client->is_tls = 1;
@@ -464,6 +472,7 @@ trest_do_json_request (trest_ptr client,
 	req->port = c->port;
 	req->body = req_in->json_body;
 	req->headers = req_in->headers;
+	req->conn = c->conn;
 	if (req_in->json_body)
 		req->body_content_type = "application/json";
 
