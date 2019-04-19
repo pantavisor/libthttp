@@ -591,7 +591,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 			continue;
 		}
 
-		if ( ret != MBEDTLS_NET_POLL_WRITE && ret !=MBEDTLS_NET_POLL_READ)
+		if ( !(ret & MBEDTLS_NET_POLL_WRITE) &&  !(ret & MBEDTLS_NET_POLL_READ))
 			goto exit;
 
 		ret = mbedtls_ssl_handshake(&ctx->ssl);
