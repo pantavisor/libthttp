@@ -437,6 +437,8 @@ do_ctx_connect_tls (thttp_request_t *req,
 	char portc[16];
 	uint32_t flags;
 	thttp_request_tls_t *tls_req = (thttp_request_tls_t*) req;
+	time_t start;
+	const time_t MAX_SECS_FOR_HANDSHAKE = 30;
 #if defined(MBEDTLS_DEBUG_C)
 	mbedtls_debug_set_threshold( DEBUG_LEVEL );
 #endif
@@ -599,11 +601,15 @@ do_ctx_connect_tls (thttp_request_t *req,
 		mbedtls_printf( "  . Performing the SSL/TLS handshake..." );
 		fflush( stdout );
 	}
+	start = time(NULL);
 
 	do {
 		/*
 		 * TODO: Make 2000 (ms timeout) to a define.
 		 * */
+		
+		if ( start + MAX_SECS_FOR_HANDSHAKE < time(NULL))
+			break;
 
 		ret = mbedtls_net_poll(&ctx->server_fd, 
 				MBEDTLS_NET_POLL_WRITE | MBEDTLS_NET_POLL_READ, 2000);
