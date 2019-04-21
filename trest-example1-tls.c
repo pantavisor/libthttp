@@ -156,11 +156,11 @@ main (char **argv, int argc)
 	printf("Creating trest userclients ...");
 	userclient = trest_new_tls_from_userpass(server_host, DEFAULT_PORT,
 						 DEFAULT_USER, DEFAULT_USERPASS,
-						 cafiles);
+						 cafiles, NULL);
 
 	badclient = trest_new_tls_from_userpass(server_host, DEFAULT_PORT,
 						DEFAULT_USER, DEFAULT_BADPASS,
-						cafiles);
+						cafiles, NULL);
 
 
 	if (!userclient || !badclient) {
@@ -273,7 +273,7 @@ main (char **argv, int argc)
 
 	deviceclient = trest_new_tls_from_userpass(server_host, DEFAULT_PORT,
 						   device_prn, DEFAULT_DEVICEPASS,
-						   cafiles);
+						   cafiles, NULL);
 
 	if (!deviceclient) {
 		printf (" ERROR creating device client\n");

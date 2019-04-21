@@ -125,10 +125,12 @@ int main (char **argv, int argc)
 	printf ("PANTAHUB_HOST: %s\n", server_host);
 	printf("Creating trest userclients ...");
 	userclient = trest_new_from_userpass(server_host, DEFAULT_PORT,
-					     DEFAULT_USER, DEFAULT_USERPASS);
+					     DEFAULT_USER, DEFAULT_USERPASS, 
+					     NULL);
 
 	badclient = trest_new_from_userpass(server_host, DEFAULT_PORT,
-					    DEFAULT_USER, DEFAULT_BADPASS);
+					    DEFAULT_USER, DEFAULT_BADPASS,
+					    NULL);
 
 
 	if (!userclient || !badclient) {
@@ -239,7 +241,7 @@ int main (char **argv, int argc)
 	printf("do trest_update_auth (device credentials) ...");
 
 	deviceclient = trest_new_from_userpass(server_host, DEFAULT_PORT,
-					       device_prn, DEFAULT_DEVICEPASS);
+					       device_prn, DEFAULT_DEVICEPASS, NULL);
 
 	if (!deviceclient) {
 		printf (" ERROR creating device client\n");

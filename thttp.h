@@ -24,6 +24,7 @@
 #define THTTP_H
 
 #include "thttp-enums.h"
+#include <netinet/in.h>
 
 #ifndef DEBUG
 #define DEBUG 0
@@ -52,6 +53,8 @@ typedef struct thttp_request {
 
 	char *body;
 	char *body_content_type;
+
+	struct sockaddr conn;
 } thttp_request_t;
 
 // super struct for tls requests. ensure your thttp_request_t file

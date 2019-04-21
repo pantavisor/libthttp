@@ -282,47 +282,138 @@ struct _req_ctx_tls {
 	mbedtls_x509_crt cacert;
 };
 
+static int is_remote_reachable(int sockfd, struct sockaddr *rp, socklen_t len)
+{
+	struct timeval tv;
+	fd_set fdset;
+	int orig_flags = fcntl(sockfd, F_GETFL, NULL);
+	int ret = 0;
+	char addr[INET_ADDRSTRLEN] = {0};
+	char addr6[INET6_ADDRSTRLEN] = {0};
+
+	fcntl(sockfd, F_SETFL, orig_flags | O_NONBLOCK);
+
+	if (VERBOSE) {
+		if (rp->sa_family == AF_INET) {
+
+			if (inet_ntop(AF_INET,
+				&((struct sockaddr_in*)rp)->sin_addr, addr, sizeof(addr))) {
+				mbedtls_printf( "attempting connection to %s:%d\n",
+						addr, htons(((struct sockaddr_in*)rp)->sin_port));
+			}
+		} 
+		else if (rp->sa_family == AF_INET6) {
+			if (inet_ntop(AF_INET6,
+				&((struct sockaddr_in6*)rp)->sin6_addr,addr6, sizeof(addr6))) {
+				mbedtls_printf( "attempting connection to %s:%d\n",
+						addr6, htons(((struct sockaddr_in6*)rp)->sin6_port));
+			}
+
+		}
+	}
+
+	ret = connect(sockfd, rp, len);
+
+	if (!ret) {
+		ret = 1;
+		goto out;
+	}
+
+	if (errno != EINPROGRESS) {
+		ret = 0;
+		goto out;
+	}
+
+	tv.tv_sec = 2;
+	tv.tv_usec = 0;
+
+	FD_ZERO(&fdset);
+	FD_SET(sockfd, &fdset);
+
+	if (select(sockfd + 1, 0, &fdset, 0, &tv) <= 0) {
+		ret = 0;
+		goto out;
+	}
+
+	len = sizeof(ret);
+	getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &ret, &len);
+	ret = !ret ? 1 : 0;
+out:
+	fcntl(sockfd, F_SETFL, orig_flags);
+	return ret;
+
+}
+
+
+static int
+_sock_connect (char *host, char *port, struct sockaddr *sock)
+{
+	int ret, fd = -1;
+	struct addrinfo hints, *result, *rp;
+	struct sockaddr_in *addr;
+	struct timeval tv;
+	socklen_t len;
+
+	/*
+	 * Try resolved PH IP first.
+	 * */
+
+	fd = socket(sock->sa_family, SOCK_STREAM, IPPROTO_IP);
+
+	if (fd < 0)
+		return fd;
+
+	if (is_remote_reachable(fd, sock, sizeof(*sock))) {
+		return fd;
+	}
+	else {
+		close(fd);
+		/*
+		 * Do we let it resolve here or resolve must be
+		 * done through pv?
+		 * */
+		fd = -1;
+	}
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family |= AF_UNSPEC;
+
+	if (getaddrinfo(host, port, &hints, &result))
+		return -1;
+
+	rp = result;
+	while (rp) {
+
+		fd = socket(rp->ai_family, SOCK_STREAM, IPPROTO_IP);
+		
+		if (fd < 0)
+			goto out;
+
+		if (is_remote_reachable(fd, rp->ai_addr, rp->ai_addrlen))
+			break;
+next:
+		close(fd);
+		fd = -1; /*Reset socket desc*/
+		rp = rp->ai_next;
+	}
+out:
+	if (result)
+		freeaddrinfo(result);
+
+	return fd;
+}
+
 
 static int
 thttp_request_connect_plain (thttp_request_t* req,
 			     struct _req_ctx_plain *ctx)
 {
-	int rv = 0;
-	if ((ctx->server_host = gethostbyname (req->host)) == NULL)
-	{
-		printf ("ERROR: failed\n  ! gethostbyname failed\n\n");
-		goto exit;
-	}
-
-	if ((ctx->server_fd = socket (AF_INET, SOCK_STREAM, IPPROTO_IP)) < 0)
-	{
-		printf ("ERROR: failed\n  ! socket returned %d\n\n", ctx->server_fd);
-		goto exit;
-	}
-
-	memcpy ((void *) &ctx->server_addr.sin_addr,
-		(void *) ctx->server_host->h_addr,
-		ctx->server_host->h_length);
-
-	ctx->server_addr.sin_family = AF_INET;
-	ctx->server_addr.sin_port = htons (req->port);
-
-	if ((rv = connect ( ctx->server_fd, (struct sockaddr *) &ctx->server_addr,
-			    sizeof( ctx->server_addr ))) < 0)
-	{
-		// XXX: print out errno value here
-		printf ("ERROR: failed\n  ! connect returned %d\n\n", rv);
-		goto exit;
-	}
-
-	// SUCCESS
-	rv = 1;
-
+	char portc[16];
+	snprintf(portc, sizeof(portc), "%d", req->port);
+	ctx->server_fd = _sock_connect(req->host, portc, &req->conn);
 	if (DEBUG)
 		printf (" OK\n");
 
-exit:
-	return rv;
+	return ctx->server_fd > 0 ? 1 : 0;
 
 }
 
@@ -336,76 +427,18 @@ static void my_debug (void *ctx, int level,
 	fflush((FILE *) ctx);
 }
 
-static int
-_sock_connect (mbedtls_net_context *ctx,
-		   char *host, char *port)
-{
-	int ret, fd, flags;
-	struct addrinfo hints, *result, *rp;
-	struct sockaddr_in *addr;
-	struct timeval tv;
-	socklen_t len;
-	fd_set fdset;
-
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family |= AF_INET;
-
-	if (getaddrinfo(host, port, &hints, &result))
-		return -1;
-
-	rp = result;
-	while (rp) {
-		fd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-		fcntl(fd, F_SETFL, O_NONBLOCK);
-
-		ret = connect(fd, rp->ai_addr, rp->ai_addrlen);
-		if (!ret)
-			break;
-
-		if (errno != EINPROGRESS)
-			goto next;
-
-		tv.tv_sec = 2;
-		tv.tv_usec = 0;
-
-		FD_ZERO(&fdset);
-		FD_SET(fd, &fdset);
-
-		if (select(fd + 1, 0, &fdset, 0, &tv) <= 0)
-			goto next;
-
-		len = sizeof(ret);
-		getsockopt(fd, SOL_SOCKET, SO_ERROR, &ret, &len);
-
-		if (!ret)
-			break;
-
-next:
-		close(fd);
-		rp = rp->ai_next;
-	}
-out:
-	if (result)
-		freeaddrinfo(result);
-	if (fd) {
-		flags = fcntl(fd, F_GETFL, NULL);
-  		flags &= (~O_NONBLOCK);
-  		fcntl(fd, F_SETFL, flags);
-	}
-
-	return fd;
-}
 
 static int
 do_ctx_connect_tls (thttp_request_t *req,
 		    struct _req_ctx_tls *ctx)
 {
 	const char *pers = "thttp_client";
-	int ret = 0, fd;
+	int ret = 0, fd = -1;
 	char portc[16];
 	uint32_t flags;
 	thttp_request_tls_t *tls_req = (thttp_request_tls_t*) req;
-
+	time_t start;
+	const time_t MAX_SECS_FOR_HANDSHAKE = 30;
 #if defined(MBEDTLS_DEBUG_C)
 	mbedtls_debug_set_threshold( DEBUG_LEVEL );
 #endif
@@ -503,15 +536,16 @@ do_ctx_connect_tls (thttp_request_t *req,
 	}
 
 	sprintf(portc,"%d", req->port);
-	if( ( fd = _sock_connect(&ctx->server_fd, req->host,
-			portc ) ) == -1 )
+	if( ( fd = _sock_connect(req->host, portc, &req->conn ) ) == -1 )
 	{
 		mbedtls_printf( " failed to connect to %s:%d\n  ! mbedtls_net_connect fd=%d\n\n",
 				req->host, req->port, fd );
+		ret = fd;
 		goto exit;
 	}
 
 	ctx->server_fd.fd = fd;
+	mbedtls_net_set_nonblock(&ctx->server_fd);
 
 	if (VERBOSE)
 		mbedtls_printf( " ok\n" );
@@ -567,14 +601,34 @@ do_ctx_connect_tls (thttp_request_t *req,
 		mbedtls_printf( "  . Performing the SSL/TLS handshake..." );
 		fflush( stdout );
 	}
+	start = time(NULL);
 
-	while( ( ret = mbedtls_ssl_handshake(&ctx->ssl)) != 0 )
-	{
-		if( ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE )
-		{
-			mbedtls_printf( " failed\n  ! mbedtls_ssl_handshake returned -0x%x\n\n", -ret );
-			goto exit;
+	do {
+		/*
+		 * TODO: Make 2000 (ms timeout) to a define.
+		 * */
+		
+		if ( start + MAX_SECS_FOR_HANDSHAKE < time(NULL))
+			break;
+
+		ret = mbedtls_net_poll(&ctx->server_fd, 
+				MBEDTLS_NET_POLL_WRITE | MBEDTLS_NET_POLL_READ, 2000);
+		if ( !ret) {
+			if (VERBOSE)
+				mbedtls_printf("Nothing to read from ssl socket yet\n");
+			continue;
 		}
+
+		if ( !(ret & MBEDTLS_NET_POLL_WRITE) &&  !(ret & MBEDTLS_NET_POLL_READ))
+			goto exit;
+
+		ret = mbedtls_ssl_handshake(&ctx->ssl);
+
+	}while (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE);
+
+	if (ret) {
+		mbedtls_printf( " failed\n  ! mbedtls_ssl_handshake returned -0x%x\n\n", -ret );
+		goto exit;
 	}
 
 	if (VERBOSE)
@@ -596,7 +650,9 @@ do_ctx_connect_tls (thttp_request_t *req,
 		if (VERBOSE)
 			mbedtls_printf( " ok\n" );
 	}
+	return ret;
 exit:
+	close(fd);
 	return ret;
 }
 
@@ -629,22 +685,42 @@ do_ctx_tls_write(thttp_request_t* req,
 {
 	int at = 0, size = 0;
 	int ret;
+	int has_error = 0;
 
-	size = len > BUF_BLOCKSIZE ? BUF_BLOCKSIZE : len;
 	while( (len) > 0 ) {
-		ret = mbedtls_ssl_write( &ctx->ssl, buf+at, size);
-		if( (ret < 0) && ret != MBEDTLS_ERR_SSL_WANT_READ &&
-		    ret != MBEDTLS_ERR_SSL_WANT_WRITE )
-		{
-			mbedtls_printf( " failed\n  ! mbedtls_ssl_write returned %d\n\n", ret );
-			goto exit;
-		}
-		at += ret;
-		len -= ret;
 		size = len > BUF_BLOCKSIZE ? BUF_BLOCKSIZE : len;
+		int written = 0;
+		while (size > 0) {
+			/*
+			 * TODO: Make 2000 (ms timeout) to a define.
+			 * */
+			if ( mbedtls_net_poll(&ctx->server_fd, MBEDTLS_NET_POLL_WRITE, 2000)
+					!= MBEDTLS_NET_POLL_WRITE) {
+				break;
+			}
+			ret = mbedtls_ssl_write( &ctx->ssl, buf+at, size);
+			if (!ret)
+				break;
+
+			if(ret < 0) {
+				if (ret != MBEDTLS_ERR_SSL_WANT_WRITE &&
+						ret != MBEDTLS_ERR_SSL_WANT_READ) {
+					has_error = ret;
+					break;
+				}
+				else 
+					continue;
+			}
+			at += ret;
+			written += ret;
+			size -= ret;
+		}
+		len -= written;
+		if (!written || has_error)  /*Unable to write anything*/
+			break;
 	}
 exit:
-	return ret;
+	return has_error ? has_error : at;
 }
 
 static int
@@ -677,6 +753,7 @@ do_ctx_tls_read(thttp_request_t* req,
 		int len)
 {
 	int ret = -1;
+	int to_read = len;
 
 	if(DEBUG) {
 		mbedtls_printf( "  < Read from server:" );
@@ -684,31 +761,38 @@ do_ctx_tls_read(thttp_request_t* req,
 	}
 
 	memset(buf, 0, len);
-	ret = mbedtls_ssl_read(&ctx->ssl, buf, len);
 
-	if(ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE)
-		return -2; // XXX: make proper enum or something for AGAIN
+	while (len > 0) {
 
-	if(ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
-		if (DEBUG)
-			mbedtls_printf("failed\n  ! mbedtls_ssl_read failed with MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY\n\n");
-		return -1;
+		if ( mbedtls_net_poll(&ctx->server_fd, MBEDTLS_NET_POLL_READ, 2000)
+				!= MBEDTLS_NET_POLL_READ) {
+			mbedtls_printf("poll returned -ve value..\n");
+			break;
+		}
+		
+		ret = mbedtls_ssl_read(&ctx->ssl, buf , len);
+		
+		if (ret == 0 )
+			break;
+
+		else if (ret > 0) {
+			len -= ret;
+			buf += ret;
+		}
+		else {
+			if(ret == MBEDTLS_ERR_SSL_WANT_READ || 
+					ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
+				mbedtls_printf("will loop again\n");
+				continue; // XXX: make proper enum or something for AGAIN
+			}
+			else 
+				break;
+		}
 	}
-
-	if(ret < 0) {
-		mbedtls_printf("failed\n  ! mbedtls_ssl_read returned %d\n\n", ret);
-		return -1;
-	}
-
-	if(ret == 0) {
-		if (DEBUG)
-			mbedtls_printf("\n\nEOF\n\n");
-	}
-
 	if (DEBUG)
-		mbedtls_printf("%d bytes read\n\n%s", len, (char *) buf);
+		mbedtls_printf("%d bytes read\n\n%s", to_read, (char *) buf - (to_read - len));
 
-	return ret;
+	return to_read - len;
 }
 
 static int
