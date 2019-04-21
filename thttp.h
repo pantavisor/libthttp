@@ -94,6 +94,8 @@ typedef struct thttp_response {
 } thttp_response_t;
 
 
+void thttp_set_log_func(int (*func)(const char *fmt, ...));
+
 // full sync variant for http requests
 thttp_response_t* thttp_request_do (thttp_request_t* req);
 

@@ -34,7 +34,7 @@
 #define mbedtls_time       time
 #define mbedtls_time_t     time_t
 #define mbedtls_fprintf    fprintf
-#define mbedtls_printf     printf
+#define mbedtls_printf     my_printf
 #endif
 
 #include "mbedtls/net.h"
@@ -69,6 +69,8 @@
 #define BUF_BLOCKSIZE 8192
 #define ENV_CACHAIN "THTTP_CAFILE" // XXX: this has to go away; example should put the file in request
 
+int (*my_printf)(const char *fmt, ...) = printf;
+
 struct http_response_parser {
 	thttp_response_t *out;
 
@@ -83,6 +85,12 @@ struct http_response_parser {
 	int file_error;
 	int file_errno;
 };
+
+void thttp_set_log_func(int (*func)(const char *fmt, ...))
+{
+	if (func)
+		my_printf = func;
+}
 
 static unsigned char*
 buf_nappend (unsigned char *buf, size_t *at, const unsigned char* append, size_t *bufsize, size_t n)
@@ -413,7 +421,7 @@ thttp_request_connect_plain (thttp_request_t* req,
 	snprintf(portc, sizeof(portc), "%d", req->port);
 	ctx->server_fd = _sock_connect(req->host, portc, &req->conn);
 	if (DEBUG)
-		printf (" OK\n");
+		mbedtls_printf (" OK\n");
 
 	return ctx->server_fd > 0 ? 1 : 0;
 
@@ -861,29 +869,29 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	parser->out = calloc(sizeof(thttp_response_t), 1);
 
 	if (DEBUG) {
-		printf("Connecting to tcp/%s/%4d...", req->host,
+		mbedtls_printf("Connecting to tcp/%s/%4d...", req->host,
 		       req->port);
 		fflush (stdout);
 	}
 
 	if(ret = do_ctx_connect(req, &ctx_plain, &ctx_tls) < 0) {
-		printf ("ERROR: failed\n  ! connect returned %d\n\n", ret);
+		mbedtls_printf ("ERROR: failed\n  ! connect returned %d\n\n", ret);
 		goto exit_connect;
 	}
 
 	if (DEBUG){
-		printf ("Write to server:\n");
+		mbedtls_printf ("Write to server:\n");
 		fflush (stdout);
 	}
 
 	len = make_http_req(req, &reqbuf);
 
 	if (DEBUG)
-		printf ("%s\n", reqbuf);
+		mbedtls_printf ("%s\n", reqbuf);
 
 	while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, reqbuf, len)) <= 0) {
 		if (ret != 0) {
-			printf ("failed\n  ! write returned %d\n\n", ret);
+			mbedtls_printf ("failed\n  ! write returned %d\n\n", ret);
 			goto exit_write;
 		}
 	}
@@ -892,7 +900,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	while (req->fd && ((bytes = read(req->fd, filebuf, 4096)) > 0)) {
 		while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, filebuf, bytes)) <= 0) {
 			if (ret != 0) {
-				printf ("failed\n  ! write returned %d\n\n", ret);
+				mbedtls_printf ("failed\n  ! write returned %d\n\n", ret);
 				goto exit_write;
 			}
 		}
@@ -912,7 +920,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 
 		if(ret <= 0) {
 			if (DEBUG)
-				printf ("\n---FINISHED or FAILED: ssl_read returned %d\n\n", ret);
+				mbedtls_printf ("\n---FINISHED or FAILED: ssl_read returned %d\n\n", ret);
 			break;
 		}
 
@@ -924,13 +932,13 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 			ret -= read;
 			data += read;
 			if(parser->file_error) {
-				fprintf(stderr, "Error writing to file\n");
+				mbedtls_printf("Error writing to file\n");
 				goto exit;
 			}
 		}
 	}
 	if(http_iserror(&rt)) {
-		fprintf(stderr, "Error parsing data\n");
+		mbedtls_printf("Error parsing data\n");
 		goto exit;
 	}
 
@@ -952,7 +960,7 @@ thttp_request_do (thttp_request_t *req)
 	memset (&parser, 0, sizeof (parser));
 	rv = thttp_request_do_abstract (req, &parser);
 	if (DEBUG)
-		printf("thttp parser return: %s\n", parser.out->body);
+		mbedtls_printf("thttp parser return: %s\n", parser.out->body);
 	return parser.out;
 }
 
@@ -967,7 +975,7 @@ thttp_request_do_file (thttp_request_t *req, int fd)
 	parser.fd = fd;
 	rv = thttp_request_do_abstract (req, &parser);
 	if (DEBUG)
-		printf("thttp parser file done.");
+		mbedtls_printf("thttp parser file done.");
 	return parser.out;
 }
 
