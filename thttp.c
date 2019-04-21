@@ -60,6 +60,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 
 #include "thttp.h"
@@ -349,7 +350,7 @@ static int
 _sock_connect (char *host, char *port, struct sockaddr *sock)
 {
 	int ret, fd = -1;
-	struct addrinfo hints, *result, *rp;
+	struct addrinfo hints, *result = 0, *rp;
 	struct sockaddr_in *addr;
 	struct timeval tv;
 	socklen_t len;
@@ -363,17 +364,12 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 	if (fd < 0)
 		return fd;
 
-	if (is_remote_reachable(fd, sock, sizeof(*sock))) {
-		return fd;
-	}
-	else {
-		close(fd);
-		/*
-		 * Do we let it resolve here or resolve must be
-		 * done through pv?
-		 * */
-		fd = -1;
-	}
+	if (is_remote_reachable(fd, sock, sizeof(*sock)))
+		goto out;
+
+	close(fd);
+	fd = -1;
+
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family |= AF_UNSPEC;
 
@@ -382,9 +378,8 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 
 	rp = result;
 	while (rp) {
-
 		fd = socket(rp->ai_family, SOCK_STREAM, IPPROTO_IP);
-		
+
 		if (fd < 0)
 			goto out;
 
@@ -396,6 +391,13 @@ next:
 		rp = rp->ai_next;
 	}
 out:
+	if (fd > 0) {
+		int flags = 1;
+		setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &flags, sizeof(flags));
+		flags = 300;
+		setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &flags, sizeof(flags));
+	}
+
 	if (result)
 		freeaddrinfo(result);
 
@@ -769,9 +771,9 @@ do_ctx_tls_read(thttp_request_t* req,
 			mbedtls_printf("poll returned -ve value..\n");
 			break;
 		}
-		
+
 		ret = mbedtls_ssl_read(&ctx->ssl, buf , len);
-		
+
 		if (ret == 0 )
 			break;
 
@@ -780,12 +782,12 @@ do_ctx_tls_read(thttp_request_t* req,
 			buf += ret;
 		}
 		else {
-			if(ret == MBEDTLS_ERR_SSL_WANT_READ || 
+			if(ret == MBEDTLS_ERR_SSL_WANT_READ ||
 					ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
 				mbedtls_printf("will loop again\n");
 				continue; // XXX: make proper enum or something for AGAIN
 			}
-			else 
+			else
 				break;
 		}
 	}
