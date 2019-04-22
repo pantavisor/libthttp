@@ -302,7 +302,7 @@ static int is_remote_reachable(int sockfd, struct sockaddr *rp, socklen_t len)
 
 	fcntl(sockfd, F_SETFL, orig_flags | O_NONBLOCK);
 
-	if (VERBOSE) {
+	if (DEBUG) {
 		if (rp->sa_family == AF_INET) {
 
 			if (inet_ntop(AF_INET,
@@ -310,7 +310,7 @@ static int is_remote_reachable(int sockfd, struct sockaddr *rp, socklen_t len)
 				mbedtls_printf( "attempting connection to %s:%d\n",
 						addr, htons(((struct sockaddr_in*)rp)->sin_port));
 			}
-		} 
+		}
 		else if (rp->sa_family == AF_INET6) {
 			if (inet_ntop(AF_INET6,
 				&((struct sockaddr_in6*)rp)->sin6_addr,addr6, sizeof(addr6))) {
@@ -364,19 +364,17 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 	socklen_t len;
 
 	/*
-	 * Try resolved PH IP first.
+	 * If conn, try resolved PH IP first.
 	 * */
 
 	fd = socket(sock->sa_family, SOCK_STREAM, IPPROTO_IP);
+	if (fd > 0) {
+		if (is_remote_reachable(fd, sock, sizeof(*sock)))
+			return fd;
 
-	if (fd < 0)
-		return fd;
-
-	if (is_remote_reachable(fd, sock, sizeof(*sock)))
-		goto out;
-
-	close(fd);
-	fd = -1;
+		close(fd);
+		fd = -1;
+	}
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family |= AF_UNSPEC;
