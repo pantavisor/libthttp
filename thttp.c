@@ -774,7 +774,7 @@ do_ctx_tls_read(thttp_request_t* req,
 
 		if ( mbedtls_net_poll(&ctx->server_fd, MBEDTLS_NET_POLL_READ, 2000)
 				!= MBEDTLS_NET_POLL_READ) {
-			if (DEBUG_
+			if (DEBUG)
 				mbedtls_printf("poll returned -ve value..\n");
 			break;
 		}
