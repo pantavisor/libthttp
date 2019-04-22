@@ -774,7 +774,8 @@ do_ctx_tls_read(thttp_request_t* req,
 
 		if ( mbedtls_net_poll(&ctx->server_fd, MBEDTLS_NET_POLL_READ, 2000)
 				!= MBEDTLS_NET_POLL_READ) {
-			mbedtls_printf("poll returned -ve value..\n");
+			if (DEBUG_
+				mbedtls_printf("poll returned -ve value..\n");
 			break;
 		}
 
@@ -790,7 +791,8 @@ do_ctx_tls_read(thttp_request_t* req,
 		else {
 			if(ret == MBEDTLS_ERR_SSL_WANT_READ ||
 					ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
-				mbedtls_printf("will loop again\n");
+				if (DEBUG)
+					mbedtls_printf("will loop again\n");
 				continue; // XXX: make proper enum or something for AGAIN
 			}
 			else
