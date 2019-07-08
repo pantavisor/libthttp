@@ -118,51 +118,13 @@ update_tokens_from_json_response (struct trest *self,
 static trest_auth_status_enum
 do_refresh_login (struct trest *self)
 {
-	const char *htmpl = "Authorization: Bearer %s";
-	trest_response_ptr r;
-	char **h;
-
 	// for start lets clear access_token if set
 	if (self->access_token) {
-		free(self->access_token);
-		self->access_token=0;
+		return self->status;
 	}
-
-	// now lets construct special Authorization Bearer from refresh_token
-	h = malloc (sizeof(char*) * 2);
-	h[0] = malloc (sizeof(char) *
-		       (strlen(htmpl)
-			+ strlen (self->refresh_token)));
-	sprintf(h[0], htmpl, self->refresh_token);
-
-	h[1] = 0;
-
-	if (DEBUG)
-		printf ("refresh login with: %s\n", h[0]);
-
-	trest_request_ptr p = trest_make_request (TREST_METHOD_GET,
-						  "/auth/login",
-						  NULL,
-						  h,
-						  NULL);
-	free (h[0]);
-	free (h);
-
-	r = trest_do_json_request (self, p);
-
-	if (r->code == THTTP_STATUS_UNAUTHORIZED) {
+	else {
 		self->status = TREST_AUTH_STATUS_NOTAUTH;
-		goto exit;
-	} else if (r->code != THTTP_STATUS_OK) {
-		self->status = TREST_AUTH_STATUS_ERROR;
-		goto exit;
 	}
-	update_tokens_from_json_response (self, r);
-
-	self->status = TREST_AUTH_STATUS_OK;
-exit:
-	trest_request_free(p);
-	trest_response_free(r);
 	return self->status;
 }
 
@@ -347,7 +309,6 @@ trest_auth_status_enum
 trest_update_auth (trest_ptr ptr)
 {
 	struct trest *self = (struct trest*) ptr;
-
 	// if we believe we are authed, use refresh logic...
 	if (trest_auth_status (ptr) == TREST_AUTH_STATUS_OK) {
 		return do_refresh_login (self);
@@ -456,6 +417,7 @@ trest_do_json_request (trest_ptr client,
 	struct trest *c = (struct trest*) client;
 	jsmntok_t *tokv;
 	int tokc;
+	static char do_login_userpass = 0;
 
 	if (!c->is_tls) {
 		req = thttp_request_new_0();
@@ -514,6 +476,12 @@ trest_do_json_request (trest_ptr client,
 	switch (response->code) {
 	case THTTP_STATUS_UNAUTHORIZED:
 		res->status = TREST_AUTH_STATUS_NOTAUTH;
+
+		if (!do_login_userpass) {
+			do_login_userpass = 1;
+			do_credentials_login(c);
+		}
+
 	case THTTP_STATUS_OK:
 		res->status = TREST_AUTH_STATUS_OK;
 	default:
@@ -524,6 +492,9 @@ trest_do_json_request (trest_ptr client,
 
 	thttp_request_free(req);
 	thttp_response_free(response);
+
+	if (do_login_userpass)
+		do_login_userpass = 0;
 
 	return (trest_response_ptr) res;
 }
