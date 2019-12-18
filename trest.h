@@ -78,6 +78,7 @@ trest_ptr
 trest_new_from_userpass(const char* host, int port,
 			const char *user,
 			const char *pass,
+			const char *user_agent,
 			const struct sockaddr *cached);
 
 trest_ptr
@@ -85,6 +86,7 @@ trest_new_tls_from_userpass(const char* host, int port,
 			    const char *user,
 			    const char *pass,
 			    const char **ca_files,
+			    const char *user_agent,
 			    const struct sockaddr *cached);
 
 void

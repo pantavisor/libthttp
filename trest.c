@@ -54,6 +54,8 @@ struct trest {
 	char *access_token;
 	char *refresh_token;
 
+	const char *user_agent;
+
 	int is_tls;
 	char **tls_cafiles;
 	struct sockaddr conn;
@@ -180,6 +182,7 @@ trest_ptr
 trest_new_from_userpass(const char* host, int port,
 			const char *user,
 			const char *pass,
+			const char *user_agent,
 			const struct sockaddr *cached_sock)
 {
 	struct trest* client =
@@ -188,6 +191,7 @@ trest_new_from_userpass(const char* host, int port,
 	client->host = strdup(host);
 	client->port = port;
 	client->type = trest_auth_type_BASIC;
+	client->user_agent = user_agent;
 	client->status = TREST_AUTH_STATUS_NOTAUTH;
 
 	client->credentials = malloc(sizeof(char*) * 3);
@@ -206,10 +210,11 @@ trest_new_tls_from_userpass(const char* host, int port,
 			    const char *user,
 			    const char *pass,
 			    const char **cafiles,
+			    const char *user_agent,
 			    const struct sockaddr *cached_sock)
 {
 	struct trest* client = (struct trest*)
-		trest_new_from_userpass(host, port, user, pass, cached_sock);
+		trest_new_from_userpass(host, port, user, pass, user_agent, cached_sock);
 
 	const char **ci = cafiles;
 	client->is_tls = 1;
@@ -430,6 +435,7 @@ trest_do_json_request (trest_ptr client,
 	req->proto = THTTP_PROTO_HTTP;
 	req->proto_version = THTTP_PROTO_VERSION_10;
 	req->path = req_in->endpoint_path;
+	req->user_agent = c->user_agent;
 	req->host = c->host;
 	req->port = c->port;
 	req->body = req_in->json_body;
