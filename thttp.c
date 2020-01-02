@@ -149,6 +149,13 @@ make_http_req (thttp_request_t *req, unsigned char **buf)
 	*buf = buf_append_int (*buf, &at, req->port, &bufsize);
 	*buf = buf_append (*buf, &at, "\r\n", &bufsize);
 
+	// User-Agent: user agent if provided
+	if (req->user_agent) {
+		*buf = buf_append (*buf, &at, "User-Agent: ", &bufsize);
+		*buf = buf_append (*buf, &at, req->user_agent, &bufsize);
+		*buf = buf_append (*buf, &at, "\r\n", &bufsize);
+	}
+
 	// append headers; one each line!
 	while (headers && *headers) {
 		*buf = buf_append (*buf, &at, *headers, &bufsize);

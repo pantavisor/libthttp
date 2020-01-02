@@ -34,6 +34,7 @@
 #define DEFAULT_USERPASS "user1"
 #define DEFAULT_BADPASS "badpassword"
 #define DEFAULT_DEVICEPASS "device1"
+#define DEFAULT_USERAGENT "trest/1.0 (development build)"
 
 #define DEVICE_TRAIL_ENDPOINT_FMT "/trails/%s/steps"
 
@@ -156,11 +157,13 @@ main (char **argv, int argc)
 	printf("Creating trest userclients ...");
 	userclient = trest_new_tls_from_userpass(server_host, DEFAULT_PORT,
 						 DEFAULT_USER, DEFAULT_USERPASS,
-						 cafiles, NULL);
+						 cafiles, DEFAULT_USERAGENT,
+						 NULL);
 
 	badclient = trest_new_tls_from_userpass(server_host, DEFAULT_PORT,
 						DEFAULT_USER, DEFAULT_BADPASS,
-						cafiles, NULL);
+						cafiles, DEFAULT_USERAGENT,
+						NULL);
 
 
 	if (!userclient || !badclient) {
@@ -273,7 +276,8 @@ main (char **argv, int argc)
 
 	deviceclient = trest_new_tls_from_userpass(server_host, DEFAULT_PORT,
 						   device_prn, DEFAULT_DEVICEPASS,
-						   cafiles, NULL);
+						   cafiles, DEFAULT_USERAGENT,
+						   NULL);
 
 	if (!deviceclient) {
 		printf (" ERROR creating device client\n");
