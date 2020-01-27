@@ -30,6 +30,7 @@
 #include "trest.h"
 
 #include <netinet/in.h>
+#include <stdbool.h>
 
 enum trest_rtype {
 	trest_rtype_JSON =1,
@@ -40,6 +41,12 @@ enum trest_auth_type {
 	trest_auth_type_BASIC=0,
 	trest_auth_type_DAUTH,
 	trest_auth_type_UNKNOWN=10000
+};
+
+enum trest_req_alloc_type {
+	TREST_ALLOC_HEADER,
+	TREST_ALLOC_QUERY,
+	TREST_ALLOC_UNKNOWN
 };
 
 
@@ -69,6 +76,9 @@ struct trest_request {
 	char **queries;
 	char **headers;
 	char *json_body;
+	int nr_queries;
+	int nr_headers;
+	void (*on_free)(struct trest_request*);
 };
 
 static void
@@ -259,29 +269,8 @@ trest_request_free (trest_request_ptr ptr)
 {
 	struct trest_request* req = (struct trest_request*) ptr;
 
-	if (req->json_body)
-		free(req->json_body);
-
-	if (req->queries) {
-		char **queries_i = req->queries;
-		while(*queries_i) {
-			free(*queries_i);
-			queries_i++;
-		}
-		free(req->queries);
-	}
-
-	if (req->headers) {
-		char **headers_i = req->headers;
-		while(*headers_i) {
-			free(*headers_i);
-			headers_i++;
-		}
-		free(req->headers);
-	}
-
-	if(req->endpoint_path)
-		free(req->endpoint_path);
+	if (req->on_free)
+		req->on_free(req);
 
 	free(req);
 }
@@ -324,6 +313,103 @@ trest_update_auth (trest_ptr ptr)
 	return TREST_AUTH_STATUS_UNKNOWN;
 }
 
+static void trest_free_make_request(struct trest_request *req)
+{
+	if (req->endpoint_path)
+		free(req->endpoint_path);
+	if (req->json_body)
+		free(req->json_body);
+	if (req->queries) {
+		while (req->nr_queries) {
+			req->nr_queries--;
+			if (req->queries[req->nr_queries])
+				free(req->queries[req->nr_queries]);
+		}
+		free(req->queries);
+	}
+	if (req->headers) {
+		while (req->nr_headers) {
+			req->nr_headers--;
+			if (req->headers[req->nr_headers])
+				free(req->headers[req->nr_headers]);
+		}
+		free(req->headers);
+	}
+}
+
+static int __trest_add_request_hq(trest_request_ptr ptr, char **hdr_or_queries, 
+					enum trest_req_alloc_type type)
+{
+	char ***dest = NULL;
+	int *count = NULL;
+	int added = 0;
+	struct trest_request *r = (struct trest_request*)ptr;
+	char **walker = hdr_or_queries;
+
+	switch (type) {
+		case TREST_ALLOC_HEADER:
+			dest = &r->headers;
+			count = &r->nr_headers;
+			break;
+		case TREST_ALLOC_QUERY:
+			dest = &r->queries;
+			count = &r->nr_queries;
+			break;
+		default:
+			dest = NULL;
+			count = NULL;
+			break;
+	}
+
+	if (!dest || !count)
+		goto out;
+
+	if (!*dest) {
+		*dest = calloc(2, sizeof(char*));
+	}
+
+	if (!*dest)
+		goto out;
+	while (walker && *walker) {
+		if (!*count) {
+			(*dest)[*count] = strdup(*walker);
+			(*count)++;
+			added++;
+		} else {
+			if ( !((*count + 1) & (*count))) {
+				char **new_dest = NULL;
+				char new_size = (*count + 1) * 2;
+				
+				new_dest = realloc(*dest, sizeof(char*) * new_size);
+				if (new_dest) {
+					*dest = new_dest;
+					memset(*dest + *count, 0,
+						(new_size - *count) * sizeof(char*));
+				} else
+					break; /*Do as many headers as we can*/
+			}
+			(*dest)[*count] = strdup(*walker);
+			(*count)++;
+			added++;
+		}
+		walker++;
+	}
+out:
+	return added;
+}
+
+int trest_add_queries(trest_request_ptr ptr, char **queries)
+{
+	return __trest_add_request_hq(ptr, queries, TREST_ALLOC_QUERY);
+}
+
+/*
+ * Allocate as headers as power of 2.
+ * */
+int trest_add_headers(trest_request_ptr ptr, char **headers) 
+{
+	return __trest_add_request_hq(ptr, headers, TREST_ALLOC_HEADER);
+}
 // make a json request; uses Encoding application/json
 // and Accept-Endcoding application/json accordingly
 trest_request_ptr
@@ -341,55 +427,21 @@ trest_make_request (trest_method_enum method,
 	char **headers_i = headers;
 	int headers_size;
 	int headers_len;
+	
+	if (!r)
+		goto no_request;
 
 	r->method = method;
 	r->endpoint_path = strdup(endpoint_path);
 	r->json_body = json_body ? strdup(json_body) : 0;
 	r->queries = 0;
 	r->headers = 0;
-
-	if (!queries_i)
-		goto headers;
-
-	size_t queries_size = 1;
-	int queries_len = 0;
-	r->queries = calloc(sizeof(char*), queries_size);
-	r->queries[queries_len] = 0;
-
-	// XXX: make a ptrvdup
-	while (*queries_i) {
-		r->queries[queries_len] = strdup(*queries_i++);
-		queries_len++;
-		if (queries_len >= queries_size) {
-			queries_size += 128 * sizeof(char*);
-			r->queries = realloc(r->queries, queries_size);
-		}
-	}
-
-headers:
-	headers_size = 2;
-	headers_len = 0;
-	r->headers = calloc(sizeof(char*), headers_size);
-
-	if (!headers_i)
-		goto no_headers;
-
-	// XXX: make a ptrvdup
-	while (*headers_i) {
-		r->headers[headers_len] = strdup(*headers_i);
-		headers_len++;
-		headers_i++;
-		if (headers_len+1 >= headers_size) {
-			headers_size += 128;
-			r->headers = realloc(r->headers, sizeof(char*) * headers_size);
-		}
-	}
-
-no_headers:
-	r->headers[headers_len] = 0;
-	r->headers[headers_len+1] = 0;
-
-exit:
+	r->nr_queries = 0;
+	r->nr_headers = 0;
+	r->on_free = trest_free_make_request;
+	trest_add_queries(r, queries);
+	trest_add_headers(r, headers);
+no_request:
 	return r;
 }
 
@@ -417,19 +469,26 @@ trest_do_json_request (trest_ptr client,
 
 	thttp_response_t *response;
 	thttp_request_t *req;
-	trest_response_t *res = calloc (sizeof(trest_response_t),1);
+	trest_response_t *res = calloc (1, sizeof(trest_response_t));
 	struct trest_request *req_in = (struct trest_request*) request;
 	struct trest *c = (struct trest*) client;
 	jsmntok_t *tokv;
 	int tokc;
 	static char do_login_userpass = 0;
 
+	if (!res)
+		goto exit;
+
 	if (!c->is_tls) {
 		req = thttp_request_new_0();
 	} else {
 		req = (thttp_request_t*) thttp_request_tls_new_0();
-		((thttp_request_tls_t*)req)->crtfiles = c->tls_cafiles;
 	}
+	if (!req)
+		goto exit;
+
+	if (c->is_tls)
+		((thttp_request_tls_t*)req)->crtfiles = c->tls_cafiles;
 
 	req->method = req_in->method;
 	req->proto = THTTP_PROTO_HTTP;
@@ -449,30 +508,41 @@ trest_do_json_request (trest_ptr client,
 	// use argz glibc extension instead for headers and queries
 	if (c->access_token) {
 		const char *autht = "Authorization: Bearer %s";
-		char **headers_i = req->headers;
-		while (*headers_i)
-			headers_i++;
-		*headers_i = malloc ((strlen(autht) + strlen (c->access_token)) * sizeof(char));
-		sprintf (*headers_i, autht, c->access_token);
-		if (DEBUG)
-			printf("Added access_token header: %s\n", *headers_i);
-		if (*++headers_i != 0)
-			printf("ERROR: ARRAY MUST BE NULL TERMINATED\n");
+		char *headers_i = NULL;
+		
+		headers_i = malloc(strlen(autht) + strlen (c->access_token) + 1);
+		if (headers_i) {
+			char *headers[] = {headers_i, NULL};
+
+			sprintf (headers_i, autht, c->access_token);
+			if (trest_add_headers(req_in, headers) == 1) {
+				req->headers = req_in->headers;
+			}
+			if (DEBUG)
+				printf("Added access_token header: %s\n", headers_i);
+		}
 	}
 
-
 	response = thttp_request_do(req);
+	if (!response)
+		goto free_req;
 
 	if (response->body) {
 		int jc;
 		res->body = strdup(response->body);
-		res->json_tokc = jsmnutil_parse_json (response->body, &res->json_tokv, &res->json_toks);
+		if (!res->body) {
+			res->body = response->body;
+			response->body = NULL;
+		}
+		res->json_tokc = jsmnutil_parse_json (res->body, &res->json_tokv, &res->json_toks);
 		if (!res->json_tokc)
 		{
 			// XXX: update auth status of response?
 			printf ("failed to parse_json\n");
 			trest_response_free(res);
+			thttp_response_free(response);
 			res = 0;
+			goto free_req;
 		}
 	}
 	// XXX: strvdup this one...
@@ -496,12 +566,13 @@ trest_do_json_request (trest_ptr client,
 		// clients on how to solve...
 	}
 
-	thttp_request_free(req);
 	thttp_response_free(response);
+free_req:
+	thttp_request_free(req);
 
 	if (do_login_userpass)
 		do_login_userpass = 0;
-
+exit:
 	return (trest_response_ptr) res;
 }
 

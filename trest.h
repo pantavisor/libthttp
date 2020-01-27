@@ -136,5 +136,6 @@ trest_do_request (trest_ptr client,
 trest_response_ptr
 trest_do_json_request (trest_ptr client,
 		       trest_request_ptr);
-
+int trest_add_headers(trest_request_ptr ptr, char **header);
+int trest_add_queries(trest_request_ptr ptr, char **queries);
 #endif // TREST_H
