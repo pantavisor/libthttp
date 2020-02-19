@@ -130,6 +130,8 @@ make_http_req (thttp_request_t *req, unsigned char **buf)
 
 	// allocate at first and set first char to 0
 	*buf = malloc (bufsize);
+	if (!*buf)
+		return 0;
 	**buf = 0;
 
 	// append METHOD /PATH/ HTTP/VERSION line
@@ -248,9 +250,11 @@ static const struct http_funcs _http_response_funcs = {
 thttp_request_t*
 thttp_request_new_0()
 {
-	thttp_request_t *self = calloc (sizeof(thttp_request_tls_t), 1);
-	self->fd = 0;
-	self->is_tls=0;
+	thttp_request_t *self = calloc (1, sizeof(thttp_request_tls_t));
+	if (self) {
+		self->fd = 0;
+		self->is_tls=0;
+	}
 
 	return (thttp_request_t*) self;
 }
@@ -259,7 +263,8 @@ thttp_request_tls_t*
 thttp_request_tls_new_0()
 {
 	thttp_request_t *self = thttp_request_new_0();
-	self->is_tls=1;
+	if (self)
+		self->is_tls=1;
 	return (thttp_request_tls_t*) self;
 }
 
@@ -278,8 +283,10 @@ thttp_response_free (thttp_response_t* ptr)
 		free(*headers_i);
 		headers_i++;
 	}
-	free(ptr->headers);
-	free(ptr->body);
+	if (ptr->headers)
+		free(ptr->headers);
+	if(ptr->body)
+		free(ptr->body);
 	free (ptr);
 }
 
@@ -873,7 +880,9 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	memset(&ctx_plain, 0, sizeof(ctx_plain));
 	memset(&ctx_tls, 0, sizeof(ctx_tls));
 
-	parser->out = calloc(sizeof(thttp_response_t), 1);
+	parser->out = calloc(1, sizeof(thttp_response_t));
+	if (!parser->out)
+		return -1;
 
 	if (DEBUG) {
 		mbedtls_printf("Connecting to tcp/%s/%4d...", req->host,
@@ -967,7 +976,8 @@ thttp_request_do (thttp_request_t *req)
 	memset (&parser, 0, sizeof (parser));
 	rv = thttp_request_do_abstract (req, &parser);
 	if (DEBUG)
-		mbedtls_printf("thttp parser return: %s\n", parser.out->body);
+		mbedtls_printf("thttp parser return: ret = %d, parser.out=%s\n",
+			       	rv, (parser.out? "nil":parser.out->body));
 	return parser.out;
 }
 
@@ -982,7 +992,7 @@ thttp_request_do_file (thttp_request_t *req, int fd)
 	parser.fd = fd;
 	rv = thttp_request_do_abstract (req, &parser);
 	if (DEBUG)
-		mbedtls_printf("thttp parser file done.");
+		mbedtls_printf("thttp parser file done. ret = %d", rv);
 	return parser.out;
 }
 
