@@ -726,11 +726,13 @@ do_ctx_tls_write(thttp_request_t* req,
 
 			if(ret < 0) {
 				if (ret != MBEDTLS_ERR_SSL_WANT_WRITE &&
-						ret != MBEDTLS_ERR_SSL_WANT_READ) {
+						ret != MBEDTLS_ERR_SSL_WANT_READ &&
+						ret != MBEDTLS_ERR_SSL_ASYNC_IN_PROGRESS &&
+						ret != MBEDTLS_ERR_SSL_CRYPTO_IN_PROGRESS) {
 					has_error = ret;
 					break;
 				}
-				else 
+				else
 					continue;
 			}
 			at += ret;
@@ -844,7 +846,6 @@ static int
 do_ctx_tls_close (thttp_request_t* req,
 		  struct _req_ctx_tls *ctx)
 {
-	mbedtls_ssl_close_notify(&ctx->ssl);
 	mbedtls_net_free( &ctx->server_fd );
 	mbedtls_x509_crt_free( &ctx->cacert );
 	mbedtls_ssl_free( &ctx->ssl );
@@ -960,6 +961,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 
 exit:
 	http_free(&rt);
+	mbedtls_ssl_close_notify(&ctx_tls.ssl);
 exit_write:
 	free (reqbuf);
 exit_connect:
