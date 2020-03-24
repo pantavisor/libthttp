@@ -377,6 +377,10 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 	struct timeval tv;
 	socklen_t len;
 
+ 	// ignore SIGPIPE signal to disable the default behavior (end the process).
+	// that way, we can handle send/write errors in our code
+	signal(SIGPIPE, SIG_IGN);
+
 	/*
 	 * If conn, try resolved PH IP first.
 	 * */
