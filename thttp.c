@@ -49,7 +49,6 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
-#include <netinet/in.h>
 #include <netdb.h>
 #include <string.h>
 #include <stdio.h>
@@ -61,7 +60,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <arpa/inet.h>
+#include <signal.h>
 
 #include "thttp.h"
 #include "tinyhttp/http.h"
