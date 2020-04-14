@@ -462,8 +462,8 @@ trest_do_request (trest_ptr client,
 }
 
 
-trest_response_ptr
-trest_do_json_request (trest_ptr client,
+static trest_response_ptr
+__trest_do_json_request (trest_ptr client,
 		       trest_request_ptr request)
 {
 
@@ -557,9 +557,10 @@ trest_do_json_request (trest_ptr client,
 			do_login_userpass = 1;
 			do_credentials_login(c);
 		}
-
+	break;
 	case THTTP_STATUS_OK:
 		res->status = TREST_AUTH_STATUS_OK;
+	break;
 	default:
 		res->status = TREST_AUTH_STATUS_ERROR;
 		// XXX: this needs to be redone in a way that guides
@@ -574,6 +575,32 @@ free_req:
 		do_login_userpass = 0;
 exit:
 	return (trest_response_ptr) res;
+}
+
+trest_response_ptr
+trest_do_json_request (trest_ptr client,
+		       trest_request_ptr request)
+{
+	struct trest *c = (struct trest*) client;
+	trest_response_ptr res = NULL;
+	int tried = 0;
+
+restart_request:
+	res = __trest_do_json_request(client, request);
+	if (res) {
+		/*
+		 * Were we able to refresh credentials? If yes attempt
+		 * to restart this request again.
+		 */
+		if (!tried && res->status == TREST_AUTH_STATUS_NOTAUTH &&
+				c->status == TREST_AUTH_STATUS_OK) {
+			trest_response_free(res);
+			res = NULL;
+			tried = 1;
+			goto restart_request;
+		}
+	}
+	return res;
 }
 
 // callback for blob messages. this gets called when
