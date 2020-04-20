@@ -465,7 +465,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 	time_t start;
 	const time_t MAX_SECS_FOR_HANDSHAKE = 30;
 #if defined(MBEDTLS_DEBUG_C)
-	mbedtls_debug_set_threshold( DEBUG_LEVEL );
+	mbedtls_debug_set_threshold(0);
 #endif
 
 	/*
