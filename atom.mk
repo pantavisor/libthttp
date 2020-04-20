@@ -1,52 +1,36 @@
-
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libthttp
-LOCAL_MODULE_FILENAME := $(LOCAL_MODULE).done
-LOCAL_CATEGORY_PATH := system
+LOCAL_DESCRIPTION := trest C library
+LOCAL_LIBRARIES := mbedtls
 
-LOCAL_EXPORT_LDLIBS := -l:libtrail.a -l:libmbedtls.a -l:libmbedx509.a -l:libmbedcrypto.a
+LOCAL_LDFLAGS := --static
 
-LIBTHTTP_CFLAGS := \
-	$(TARGET_GLOBAL_CFLAGS) \
-	-Wno-sign-compare -Wno-error=format-security -static \
-	$(call normalize-c-includes,$(TARGET_GLOBAL_C_INCLUDES))
+LOCAL_SRC_FILES := thttp.c \
+					tinyhttp/chunk.c \
+					tinyhttp/header.c \
+					tinyhttp/http.c \
+					jsmn/jsmnutil.c \
+					jsmn/jsmn.c \
+					trest.c \
+					trail.c
 
-LIBTHTTP_SRC_DIR := $(LOCAL_PATH)
-LIBTHTTP_BUILD_DIR := $(call local-get-build-dir)
+LOCAL_INSTALL_HEADERS := thttp.h \
+						thttp-enums.h \
+						jsmn/jsmnutil.h:usr/include/jsmn/jsmnutil.h \
+						jsmn/jsmn.h:usr/include/jsmn/jsmn.h \
+						trest.h \
+						trail.h
 
-# Make arguments
-LIBTHTTP_MAKE_ARGS := \
-	ARCH=$(TARGET_ARCH) \
-	CC="$(CCACHE) $(TARGET_CC)" \
-	AR="$(CCACHE) $(TARGET_AR)" \
-	CROSS_COMPILE="$(TARGET_CROSS)" \
-	CROSS="$(TARGET_CROSS)" \
-	CONFIG_PREFIX="$(TARGET_OUT_STAGING)" \
-	PREFIX="$(TARGET_OUT_STAGING)" \
-	LDFLAGS="$(TARGET_GLOBAL_LDFLAGS)" \
-	BUILDDIR="$(LIBTHTTP_BUILD_DIR)" \
-	SRCDIR="$(LIBTHTTP_SRC_DIR)" \
-	V=$(V)
+LOCAL_COPY_FILES := certs/api.pantahub.com.chain.pem:certs/ \
+					certs/api2pantahubcom.crt:certs/ \
+					certs/AppSpotGoogleCloudChain-long.pem:certs/ \
+					certs/BaltimoreCyberTrustRoot.crt:certs/ \
+					certs/DigiCertBaltimoreCA-2G2.crt:certs/ \
+					certs/DSTRootCAX3.crt:certs/ \
+					certs/"Let'sEncryptAuthorityX3.crt":certs/ \
+					certs/localhost.chain.pem:certs/
 
-# Build
-$(LIBTHTTP_BUILD_DIR)/$(LOCAL_MODULE_FILENAME):
-	@echo "Building libthttp"
-	$(Q) $(MAKE) $(LIBTHTTP_MAKE_ARGS) -C $(LIBTHTTP_SRC_DIR) 
-	@echo "Installing libthttp"
-	$(Q) $(MAKE) $(LIBTHTTP_MAKE_ARGS) -C $(LIBTHTTP_SRC_DIR) install
-	@touch $@
-
-# Custom clean rule. LOCAL_MODULE_FILENAME already deleted by common rule
-.PHONY: libthttp-clean
-libthttp-clean:
-	$(Q)if [ -d $(LIBTHTTP_SRC_DIR) ]; then \
-		$(MAKE) $(LIBTHTTP_MAKE_ARGS) -C $(LIBTHTTP_SRC_DIR) uninstall \
-			|| echo "Ignoring uninstall errors"; \
-		$(MAKE) $(LIBTHTTP_MAKE_ARGS) -C $(LIBTHTTP_SRC_DIR) clean \
-			|| echo "Ignoring clean errors"; \
-	fi
-
-include $(BUILD_CUSTOM)
+include $(BUILD_STATIC_LIBRARY)
