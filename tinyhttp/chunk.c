@@ -33,6 +33,8 @@ static const unsigned char http_chunk_state[] = {
     0xC1, 0xC0, 0xC1, 0xC1, /* s4: LF after chunk block */
 };
 
+int http_parse_chunked(int* state, int *size, char ch);
+
 int http_parse_chunked(int* state, int *size, char ch)
 {
     int newstate, code = 0;

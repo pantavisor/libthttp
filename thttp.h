@@ -125,6 +125,6 @@ thttp_method_t
 thttp_string_to_method (char *string);
 
 const char*
-thttp_method_to_string (thttp_proto_t proto);
+thttp_method_to_string (thttp_method_t method);
 
 #endif // THTTP_H
