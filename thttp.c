@@ -91,39 +91,39 @@ void thttp_set_log_func(int (*func)(const char *fmt, ...))
 		my_printf = func;
 }
 
-static unsigned char*
-buf_nappend (unsigned char *buf, size_t *at, const unsigned char* append, size_t *bufsize, size_t n)
+static char*
+buf_nappend (char *buf, size_t *at, const char* append, size_t *bufsize, size_t n)
 {
 	while (*at + n >= *bufsize) {
 		*bufsize += sizeof(char) * BUF_BLOCKSIZE;
 		buf = realloc (buf, *bufsize);
 	}
-	strncpy (buf + *at, append, n);
+	strncpy ((char*)(buf + *at), append, n);
 	*at+=n;
 	buf[*at]=0;
 	return buf;
 }
 
-static unsigned char*
-buf_append (unsigned char *buf, size_t *at, const unsigned char* append, size_t *bufsize)
+static char*
+buf_append (char *buf, size_t *at, const char* append, size_t *bufsize)
 {
 	buf = buf_nappend(buf, at, append, bufsize, strlen(append));
 	return buf;
 }
 
-static unsigned char*
-buf_append_int(unsigned char *buf, size_t *at, int append, size_t *bufsize)
+static char*
+buf_append_int(char *buf, size_t *at, int append, size_t *bufsize)
 {
-	unsigned char append_buf[256];
+	char append_buf[256];
 	sprintf(append_buf, "%d", append);
 	buf = buf_append (buf, at, append_buf, bufsize);
 	return buf;
 }
 
 static size_t
-make_http_req (thttp_request_t *req, unsigned char **buf)
+make_http_req (thttp_request_t *req, char **buf)
 {
-	size_t bufsize = BUF_BLOCKSIZE * sizeof(unsigned char);
+	size_t bufsize = BUF_BLOCKSIZE * sizeof(char);
 	size_t at = 0;
 	char **headers = req->headers;
 
@@ -192,7 +192,6 @@ make_http_req (thttp_request_t *req, unsigned char **buf)
 static void*
 _response_realloc(void* opaque, void* ptr, int size)
 {
-	struct http_response_parser* parser = (struct http_response_parser*) opaque;
 	return realloc(ptr, size);
 }
 
@@ -245,6 +244,8 @@ static const struct http_funcs _http_response_funcs = {
     _response_code,
 };
 
+thttp_request_t* thttp_request_new_0(void);
+thttp_request_tls_t* thttp_request_tls_new_0(void);
 
 thttp_request_t*
 thttp_request_new_0()
@@ -370,11 +371,8 @@ out:
 static int
 _sock_connect (char *host, char *port, struct sockaddr *sock)
 {
-	int ret, fd = -1;
+	int fd = -1;
 	struct addrinfo hints, *result = 0, *rp;
-	struct sockaddr_in *addr;
-	struct timeval tv;
-	socklen_t len;
 
  	// ignore SIGPIPE signal to disable the default behavior (end the process).
 	// that way, we can handle send/write errors in our code
@@ -408,7 +406,7 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 
 		if (is_remote_reachable(fd, rp->ai_addr, rp->ai_addrlen))
 			break;
-next:
+
 		close(fd);
 		fd = -1; /*Reset socket desc*/
 		rp = rp->ai_next;
@@ -723,7 +721,7 @@ do_ctx_tls_write(thttp_request_t* req,
 					!= MBEDTLS_NET_POLL_WRITE) {
 				break;
 			}
-			ret = mbedtls_ssl_write( &ctx->ssl, buf+at, size);
+			ret = mbedtls_ssl_write( &ctx->ssl, (unsigned char*)(buf+at), size);
 			if (!ret)
 				break;
 
@@ -746,7 +744,7 @@ do_ctx_tls_write(thttp_request_t* req,
 		if (!written || has_error)  /*Unable to write anything*/
 			break;
 	}
-exit:
+
 	return has_error ? has_error : at;
 }
 
@@ -798,7 +796,7 @@ do_ctx_tls_read(thttp_request_t* req,
 			break;
 		}
 
-		ret = mbedtls_ssl_read(&ctx->ssl, buf , len);
+		ret = mbedtls_ssl_read(&ctx->ssl, (unsigned char*)buf , len);
 
 		if (ret == 0 )
 			break;
@@ -877,9 +875,10 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	int ret, len, bytes;
 	struct _req_ctx_plain ctx_plain;
 	struct _req_ctx_tls ctx_tls;
-	unsigned char *reqbuf = 0;
-	unsigned char filebuf[4096];
-	unsigned char resbuf[4*8192];
+	char *reqbuf = 0;
+	char filebuf[4096];
+	char resbuf[4*8192];
+	int needmore = 1;
 
 	memset(&ctx_plain, 0, sizeof(ctx_plain));
 	memset(&ctx_tls, 0, sizeof(ctx_tls));
@@ -894,7 +893,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 		fflush (stdout);
 	}
 
-	if(ret = do_ctx_connect(req, &ctx_plain, &ctx_tls) < 0) {
+	if((ret = do_ctx_connect(req, &ctx_plain, &ctx_tls)) < 0) {
 		mbedtls_printf ("ERROR: failed\n  ! connect returned %d\n\n", ret);
 		goto exit_connect;
 	}
@@ -932,9 +931,8 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 
 	memset(resbuf, 0, sizeof(resbuf));
 
-	int needmore = 1;
 	while (needmore) {
-		unsigned char* data = resbuf;
+		char* data = resbuf;
 		len = sizeof(resbuf);
 		ret = do_ctx_read(req, &ctx_plain, &ctx_tls, resbuf, len);
 
@@ -989,7 +987,6 @@ thttp_request_do (thttp_request_t *req)
 thttp_response_t*
 thttp_request_do_file (thttp_request_t *req, int fd)
 {
-	thttp_response_t *r;
 	int rv;
 	struct http_response_parser parser;
 	memset (&parser, 0, sizeof (parser));
@@ -1129,8 +1126,9 @@ thttp_status_to_string (thttp_status_t status)
 		 return "BANDWIDTH_LIMIT_EXCEEDED";
 	case THTTP_STATUS_NOT_EXTENDED:
 		return "NOT_EXTENDED";
+	default:
+		return "UNKNOWN";
 	}
-	return "UNKNOWN";
 }
 
 // null terminated string expected. dont blame us for crashes otherwise :)
@@ -1213,9 +1211,10 @@ thttp_proto_to_string (thttp_proto_t proto)
 	switch(proto) {
 	case THTTP_PROTO_HTTP:
 		return "HTTP";
+	default:
+		return "UNKNOWN";
 	}
 
-	return "UNKNOWN";
 }
 
 thttp_proto_version_t
@@ -1240,9 +1239,10 @@ thttp_proto_version_to_string (thttp_proto_version_t proto)
 		return "1.0";
 	case THTTP_PROTO_VERSION_11:
 		return "1.1";
+	default:
+		return "UNKNOWN";
 	}
 
-	return "UNKNOWN";
 }
 
 thttp_method_t
@@ -1262,10 +1262,10 @@ thttp_string_to_method (char *string)
 
 
 const char*
-thttp_method_to_string (thttp_proto_t proto)
+thttp_method_to_string (thttp_method_t method)
 {
 
-	switch(proto) {
+	switch(method) {
 	case THTTP_METHOD_GET:
 		return "GET";
 	case THTTP_METHOD_POST:
@@ -1280,6 +1280,7 @@ thttp_method_to_string (thttp_proto_t proto)
 		return "HEAD";
 	case THTTP_METHOD_OPTIONS:
 		return "OPTIONS";
+	default:
+		return "UNKNOWN";
 	}
-	return "UNKNOWN";
 }

@@ -155,7 +155,7 @@ do_credentials_login (struct trest *self)
 			   + strlen(self->credentials[0])
 			   + strlen(self->credentials[1])));
 
-	int rv = sprintf(b, userpass, self->credentials[0], self->credentials[1]);
+	sprintf(b, userpass, self->credentials[0], self->credentials[1]);
 
 	if (DEBUG)
 		printf ("do_credentials_login with body : %s\n", b);
@@ -423,11 +423,6 @@ trest_make_request (trest_method_enum method,
 	struct trest_request* r =
 		malloc (sizeof(struct trest_request));
 
-	char **queries_i = queries;
-	char **headers_i = headers;
-	int headers_size;
-	int headers_len;
-	
 	if (!r)
 		goto no_request;
 
@@ -472,8 +467,6 @@ trest_do_json_request (trest_ptr client,
 	trest_response_t *res = calloc (1, sizeof(trest_response_t));
 	struct trest_request *req_in = (struct trest_request*) request;
 	struct trest *c = (struct trest*) client;
-	jsmntok_t *tokv;
-	int tokc;
 	static char do_login_userpass = 0;
 
 	if (!res)
@@ -528,7 +521,6 @@ trest_do_json_request (trest_ptr client,
 		goto free_req;
 
 	if (response->body) {
-		int jc;
 		res->body = strdup(response->body);
 		if (!res->body) {
 			res->body = response->body;

@@ -26,7 +26,6 @@ traverse_token (const char *buf, jsmntok_t* tok)
 static int
 iterate_json_item(const char *buf, jsmntok_t* tok, token_iter_f func, void *data)
 {
-	jsmntok_t *s;
 	int i;
 	int c=0;
 	if (tok[0].type != JSMN_ARRAY && tok[0].type != JSMN_OBJECT)

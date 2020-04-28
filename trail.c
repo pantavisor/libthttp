@@ -79,7 +79,6 @@ parse_object (const char *buf, jsmntok_t *tok)
 	obj->filename = NULL;
 
 	while (*keys_i) {
-		int n = (*keys_i)->end - (*keys_i)->start;
 		if (!strncmp ("value", buf + (*keys_i)->start, strlen("value"))) {
 			obj->prn = parse_strtok (buf, (*keys_i)+1);
 		} else if (!strncmp ("key", buf + (*keys_i)->start, strlen("key"))) {
@@ -122,7 +121,6 @@ parse_volobject (const char *buf, jsmntok_t *tok)
 	obj->flags = NULL;
 
 	while (*keys_i) {
-		int n = (*keys_i)->end - (*keys_i)->start;
 		if (!strncmp ("value", buf + (*keys_i)->start, strlen("value"))) {
 			valuetok = (*keys_i)+1;
 		} else if (!strncmp ("key", buf + (*keys_i)->start, strlen("key"))) {
@@ -136,7 +134,6 @@ parse_volobject (const char *buf, jsmntok_t *tok)
 
 	vkeys_i = vkeys = jsmnutil_get_object_keys(buf, valuetok);
 	while (*vkeys_i) {
-		int n = (*vkeys_i)->end - (*vkeys_i)->start;
 		if (!strncmp ("type", buf + (*vkeys_i)->start, strlen("type"))) {
 			obj->flags = parse_strtok (buf, (*vkeys_i)+1);
 		} else if (!strncmp ("file", buf + (*vkeys_i)->start, strlen("file"))) {
@@ -256,7 +253,6 @@ parse_platform (const char *buf, jsmntok_t *tok)
 	arr_i = arr = jsmnutil_get_object_keys(buf, tok);
 
 	for (i=0; i<c && *arr_i; i++, arr_i++) {
-		int n = (*arr_i)->end - (*arr_i)->start;
 		if (!strncmp ("type", buf + (*arr_i)->start, strlen("type"))) {
 			obj->type = parse_strtok (buf, (*arr_i)+1);
 		} else if (!strncmp ("parent", buf + (*arr_i)->start, strlen("parent"))) {
@@ -305,7 +301,6 @@ parse_platforms (systemc_state *self, const char *buf, jsmntok_t *tok)
 		self->platformsv[i]->name = parse_strtok (buf, (*arr_i));
 	}
 
-fail:
 	jsmnutil_tokv_free(arr);
 
 }
@@ -334,7 +329,6 @@ trail_parse_state (const char *buf, int len)
 	ki = key_toks = jsmnutil_get_object_keys (buf, tokv);
 
 	while (*ki) {
-		jsmntok_t *keytok = *ki;
 		int n = ((*ki)->end - (*ki)->start);
 		char *key;
 
