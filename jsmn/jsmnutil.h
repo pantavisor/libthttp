@@ -1,3 +1,6 @@
+#ifndef __JSMN_UTIL_H__
+#define __JSMN_UTIL_H__
+
 #include "jsmn.h"
 
 enum
@@ -39,3 +42,5 @@ jsmnutil_get_object_key_value (const char *buf, jsmntok_t *tok);
 /* free NULL terminated pointer array */
 void
 jsmnutil_tokv_free(jsmntok_t** tok);
+#endif	/*__JSMN_UTIL_H__*/
+
