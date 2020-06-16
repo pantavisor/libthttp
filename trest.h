@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Pantacor Ltd.
+ * Copyright (c) 2017-2020 Pantacor Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -60,6 +60,7 @@ typedef struct trest_response {
 
 } trest_response_t;
 
+
 typedef trest_response_t* trest_response_ptr;
 
 // callback for blob messages. this gets called when
@@ -89,6 +90,19 @@ trest_new_tls_from_userpass(const char* host, int port,
 			    const char *user_agent,
 			    const struct sockaddr *cached);
 
+trest_ptr
+trest_new_with_login_handler(const char* host, int port,
+			struct trest_response* (*login_handler) (trest_ptr self, void* data),
+			void *login_data,
+			const char *user_agent,
+			const struct sockaddr *cached_sock);
+trest_ptr
+trest_new_tls_with_login_handler(const char* host, int port,
+			struct trest_response* (*login_handler) (trest_ptr self, void* data),
+			void *login_data,
+			const char **ca_files,
+			const char *user_agent,
+			const struct sockaddr *cached_sock);
 void
 trest_free (trest_ptr ptr);
 

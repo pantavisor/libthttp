@@ -66,6 +66,10 @@ struct trest {
 	int is_tls;
 	char **tls_cafiles;
 	struct sockaddr conn;
+
+	// we allow third party handlers for login to be implemented
+	struct trest_response* (*login_handler) (trest_ptr self, void* data);
+	void *login_data;
 };
 
 struct trest_request {
@@ -140,11 +144,12 @@ do_refresh_login (struct trest *self)
 	return self->status;
 }
 
-static trest_auth_status_enum
-do_credentials_login (struct trest *self)
+static struct trest_response*
+do_credentials_login_userpass (trest_ptr client, void *cb_data)
 {
 	trest_response_ptr r;
 	trest_request_ptr p;
+	struct trest *self = client;
 
 	const char* userpass =
 		"{ \"username\": \"%s\""
@@ -171,27 +176,36 @@ do_credentials_login (struct trest *self)
 
 	if (DEBUG)
 		printf ("do_credentials_login code: %d\n", r->code);
-	if (r->code == THTTP_STATUS_UNAUTHORIZED) {
+exit:
+	trest_request_free(p);
+	return r;
+}
+
+static trest_auth_status_enum
+do_credentials_login (struct trest *self)
+{
+	struct trest_response* response =
+	       self->login_handler(self, self->login_data);
+
+	if (response->code == THTTP_STATUS_UNAUTHORIZED) {
 		self->status = TREST_AUTH_STATUS_NOTAUTH;
 		goto exit;
-	} else if (r->code != THTTP_STATUS_OK) {
+	} else if (response->code != THTTP_STATUS_OK) {
 		self->status = TREST_AUTH_STATUS_ERROR;
 		goto exit;
 	}
-	update_tokens_from_json_response (self, r);
-
+	update_tokens_from_json_response (self, response);
 	self->status = TREST_AUTH_STATUS_OK;
+
 exit:
-	trest_request_free(p);
-	trest_response_free(r);
+	trest_response_free(response);
 	return self->status;
 }
 
-
 trest_ptr
-trest_new_from_userpass(const char* host, int port,
-			const char *user,
-			const char *pass,
+trest_new_with_login_handler(const char* host, int port,
+			struct trest_response* (*login_handler) (trest_ptr self, void* data),
+			void *login_data,
 			const char *user_agent,
 			const struct sockaddr *cached_sock)
 {
@@ -204,16 +218,68 @@ trest_new_from_userpass(const char* host, int port,
 	client->user_agent = user_agent;
 	client->status = TREST_AUTH_STATUS_NOTAUTH;
 
+	client->credentials = 0;
+
+	if (cached_sock)
+		memcpy(&client->conn, cached_sock, sizeof(*cached_sock));
+
+	client->login_handler = login_handler;
+	client->login_data = login_data;
+
+	return (trest_ptr) client;
+}
+
+trest_ptr
+trest_new_from_userpass(const char* host, int port,
+			const char *user,
+			const char *pass,
+			const char *user_agent,
+			const struct sockaddr *cached_sock)
+{
+	struct trest* client = trest_new_with_login_handler (
+			host,
+			port,
+			do_credentials_login_userpass,
+			NULL,
+			user_agent,
+			cached_sock);
+
 	client->credentials = malloc(sizeof(char*) * 3);
 	client->credentials[0] = strdup(user);
 	client->credentials[1] = strdup(pass);
 	client->credentials[2] = (char*) 0;
 
-	if (cached_sock)
-		memcpy(&client->conn, cached_sock, sizeof(*cached_sock));
+	return (trest_ptr) client;
+}
+
+trest_ptr
+trest_new_tls_with_login_handler(const char* host, int port,
+			struct trest_response* (*login_handler) (trest_ptr self, void* data),
+		 	void *login_data,
+			const char **cafiles,
+			const char *user_agent,
+			const struct sockaddr *cached_sock)
+
+{
+	struct trest* client = (struct trest*)
+		trest_new_with_login_handler(host, port, login_handler, login_data, user_agent, cached_sock);
+
+	const char **ci = cafiles;
+	client->is_tls = 1;
+
+	if(ci) {
+		int c=0;
+		while (*ci) {
+			c++;
+			ci++;
+		}
+		client->tls_cafiles = malloc (sizeof(char*) * (c+1));
+		memcpy (client->tls_cafiles, cafiles, sizeof(char*) * (c + 1));
+	}
 
 	return (trest_ptr) client;
 }
+
 
 trest_ptr
 trest_new_tls_from_userpass(const char* host, int port,
@@ -477,6 +543,7 @@ __trest_do_json_request (trest_ptr client,
 	} else {
 		req = (thttp_request_t*) thttp_request_tls_new_0();
 	}
+
 	if (!req)
 		goto exit;
 
