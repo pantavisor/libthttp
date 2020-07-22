@@ -218,7 +218,7 @@ trest_new_with_login_handler(const char* host, int port,
 	client->user_agent = user_agent;
 	client->status = TREST_AUTH_STATUS_NOTAUTH;
 
-	client->credentials = 0;
+	client->credentials = NULL;
 
 	if (cached_sock)
 		memcpy(&client->conn, cached_sock, sizeof(*cached_sock));
@@ -314,10 +314,11 @@ trest_free (trest_ptr ptr)
 	struct trest* client = (struct trest*) ptr;
 	char **cptr = client->credentials;
 
-	while(*cptr) {
-		free (*cptr++);
+	if (cptr) {
+		while(*cptr) {
+			free (*cptr++);
+		}
 	}
-
 	if (client->access_token)
 		free(client->access_token);
 	if (client->refresh_token)
