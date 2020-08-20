@@ -103,8 +103,11 @@ thttp_response_t* thttp_request_do (thttp_request_t* req);
 
 // save body to file instead of saving to buffer
 // content-length will be set, but body will be null in response.
-thttp_response_t* thttp_request_do_file (thttp_request_t *req,
-					 int fd);
+thttp_response_t* thttp_request_do_file (thttp_request_t *req, int fd);
+
+thttp_response_t* thttp_request_do_file_with_cb (thttp_request_t *req,
+	int fd, void (*progress_cb)(ssize_t written, ssize_t chunksize, void *priv),
+	void *priv);
 
 thttp_request_t* thttp_request_new_0 ();
 thttp_request_tls_t* thttp_request_tls_new_0 ();

@@ -83,6 +83,8 @@ struct http_response_parser {
 
 	int file_error;
 	int file_errno;
+	void (*dl_progress_cb)(ssize_t written, ssize_t chunksize, void *priv);
+	void *dl_progress_cb_priv;
 };
 
 void thttp_set_log_func(int (*func)(const char *fmt, ...))
@@ -206,6 +208,9 @@ _response_body(void* opaque, const char* data, int size)
 		if (r < size) {
 			parser->file_error = 1;
 			parser->file_error = errno;
+		}
+		if (parser->dl_progress_cb) {
+			parser->dl_progress_cb(r, size, parser->dl_progress_cb_priv);
 		}
 	} else {
 		parser->out->body = buf_nappend (parser->out->body, &parser->body_at, data, &parser->body_bufsize, size);
@@ -985,17 +990,26 @@ thttp_request_do (thttp_request_t *req)
 }
 
 thttp_response_t*
-thttp_request_do_file (thttp_request_t *req, int fd)
+thttp_request_do_file_with_cb (thttp_request_t *req, int fd,
+		void (*progress_cb)(ssize_t written, ssize_t chunksize, void *priv),
+		void *priv)
 {
 	int rv;
 	struct http_response_parser parser;
 	memset (&parser, 0, sizeof (parser));
 	parser.filedownload = 1;
 	parser.fd = fd;
+	parser.dl_progress_cb = progress_cb;
+	parser.dl_progress_cb_priv = priv;
 	rv = thttp_request_do_abstract (req, &parser);
 	if (DEBUG)
 		mbedtls_printf("thttp parser file done. ret = %d", rv);
 	return parser.out;
+}
+
+thttp_response_t* thttp_request_do_file (thttp_request_t *req, int fd)
+{
+	return thttp_request_do_file_with_cb(req, fd, NULL, NULL);
 }
 
 static int
