@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Pantacor Ltd.
+ * Copyright (c) 2017-2020 Pantacor Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -70,6 +70,9 @@ struct trest {
 	// we allow third party handlers for login to be implemented
 	struct trest_response* (*login_handler) (trest_ptr self, void* data);
 	void *login_data;
+
+	// alive state memory
+	void *alive_state;
 };
 
 struct trest_request {
@@ -176,7 +179,7 @@ do_credentials_login_userpass (trest_ptr client, void *cb_data)
 
 	if (DEBUG)
 		printf ("do_credentials_login code: %d\n", r->code);
-exit:
+
 	trest_request_free(p);
 	return r;
 }
@@ -185,7 +188,7 @@ static trest_auth_status_enum
 do_credentials_login (struct trest *self)
 {
 	struct trest_response* response =
-	       self->login_handler(self, self->login_data);
+		self->login_handler(self, self->login_data);
 
 	if (response->code == THTTP_STATUS_UNAUTHORIZED) {
 		self->status = TREST_AUTH_STATUS_NOTAUTH;
@@ -197,17 +200,17 @@ do_credentials_login (struct trest *self)
 	update_tokens_from_json_response (self, response);
 	self->status = TREST_AUTH_STATUS_OK;
 
-exit:
+ exit:
 	trest_response_free(response);
 	return self->status;
 }
 
 trest_ptr
 trest_new_with_login_handler(const char* host, int port,
-			struct trest_response* (*login_handler) (trest_ptr self, void* data),
-			void *login_data,
-			const char *user_agent,
-			const struct sockaddr *cached_sock)
+			     struct trest_response* (*login_handler) (trest_ptr self, void* data),
+			     void *login_data,
+			     const char *user_agent,
+			     const struct sockaddr *cached_sock)
 {
 	struct trest* client =
 		calloc (sizeof(struct trest), 1);
@@ -237,12 +240,12 @@ trest_new_from_userpass(const char* host, int port,
 			const struct sockaddr *cached_sock)
 {
 	struct trest* client = trest_new_with_login_handler (
-			host,
-			port,
-			do_credentials_login_userpass,
-			NULL,
-			user_agent,
-			cached_sock);
+							     host,
+							     port,
+							     do_credentials_login_userpass,
+							     NULL,
+							     user_agent,
+							     cached_sock);
 
 	client->credentials = malloc(sizeof(char*) * 3);
 	client->credentials[0] = strdup(user);
@@ -254,11 +257,11 @@ trest_new_from_userpass(const char* host, int port,
 
 trest_ptr
 trest_new_tls_with_login_handler(const char* host, int port,
-			struct trest_response* (*login_handler) (trest_ptr self, void* data),
-		 	void *login_data,
-			const char **cafiles,
-			const char *user_agent,
-			const struct sockaddr *cached_sock)
+				 struct trest_response* (*login_handler) (trest_ptr self, void* data),
+				 void *login_data,
+				 const char **cafiles,
+				 const char *user_agent,
+				 const struct sockaddr *cached_sock)
 
 {
 	struct trest* client = (struct trest*)
@@ -404,8 +407,8 @@ static void trest_free_make_request(struct trest_request *req)
 	}
 }
 
-static int __trest_add_request_hq(trest_request_ptr ptr, char **hdr_or_queries, 
-					enum trest_req_alloc_type type)
+static int __trest_add_request_hq(trest_request_ptr ptr, char **hdr_or_queries,
+				  enum trest_req_alloc_type type)
 {
 	char ***dest = NULL;
 	int *count = NULL;
@@ -414,18 +417,18 @@ static int __trest_add_request_hq(trest_request_ptr ptr, char **hdr_or_queries,
 	char **walker = hdr_or_queries;
 
 	switch (type) {
-		case TREST_ALLOC_HEADER:
-			dest = &r->headers;
-			count = &r->nr_headers;
-			break;
-		case TREST_ALLOC_QUERY:
-			dest = &r->queries;
-			count = &r->nr_queries;
-			break;
-		default:
-			dest = NULL;
-			count = NULL;
-			break;
+	case TREST_ALLOC_HEADER:
+		dest = &r->headers;
+		count = &r->nr_headers;
+		break;
+	case TREST_ALLOC_QUERY:
+		dest = &r->queries;
+		count = &r->nr_queries;
+		break;
+	default:
+		dest = NULL;
+		count = NULL;
+		break;
 	}
 
 	if (!dest || !count)
@@ -446,12 +449,12 @@ static int __trest_add_request_hq(trest_request_ptr ptr, char **hdr_or_queries,
 			if ( !((*count + 1) & (*count))) {
 				char **new_dest = NULL;
 				char new_size = (*count + 1) * 2;
-				
+
 				new_dest = realloc(*dest, sizeof(char*) * new_size);
 				if (new_dest) {
 					*dest = new_dest;
 					memset(*dest + *count, 0,
-						(new_size - *count) * sizeof(char*));
+					       (new_size - *count) * sizeof(char*));
 				} else
 					break; /*Do as many headers as we can*/
 			}
@@ -461,7 +464,7 @@ static int __trest_add_request_hq(trest_request_ptr ptr, char **hdr_or_queries,
 		}
 		walker++;
 	}
-out:
+ out:
 	return added;
 }
 
@@ -473,7 +476,7 @@ int trest_add_queries(trest_request_ptr ptr, char **queries)
 /*
  * Allocate as headers as power of 2.
  * */
-int trest_add_headers(trest_request_ptr ptr, char **headers) 
+int trest_add_headers(trest_request_ptr ptr, char **headers)
 {
 	return __trest_add_request_hq(ptr, headers, TREST_ALLOC_HEADER);
 }
@@ -503,7 +506,7 @@ trest_make_request (trest_method_enum method,
 	r->on_free = trest_free_make_request;
 	trest_add_queries(r, queries);
 	trest_add_headers(r, headers);
-no_request:
+ no_request:
 	return r;
 }
 
@@ -526,7 +529,7 @@ trest_do_request (trest_ptr client,
 
 static trest_response_ptr
 __trest_do_json_request (trest_ptr client,
-		       trest_request_ptr request)
+			 trest_request_ptr request)
 {
 
 	thttp_response_t *response;
@@ -537,7 +540,7 @@ __trest_do_json_request (trest_ptr client,
 	static char do_login_userpass = 0;
 
 	if (!res)
-		goto exit;
+		goto exiterr;
 
 	if (!c->is_tls) {
 		req = thttp_request_new_0();
@@ -546,7 +549,7 @@ __trest_do_json_request (trest_ptr client,
 	}
 
 	if (!req)
-		goto exit;
+		goto exiterr;
 
 	if (c->is_tls)
 		((thttp_request_tls_t*)req)->crtfiles = c->tls_cafiles;
@@ -570,7 +573,7 @@ __trest_do_json_request (trest_ptr client,
 	if (c->access_token) {
 		const char *autht = "Authorization: Bearer %s";
 		char *headers_i = NULL;
-		
+
 		headers_i = malloc(strlen(autht) + strlen (c->access_token) + 1);
 		if (headers_i) {
 			char *headers[] = {headers_i, NULL};
@@ -584,9 +587,21 @@ __trest_do_json_request (trest_ptr client,
 		}
 	}
 
-	response = thttp_request_do(req);
+	if (c->alive_state) {
+		req->alive_state = c->alive_state;
+		if (DEBUG)
+			printf("Recycling thttp alive_state honoring keep-alive\n");
+	}
+
+	response = thttp_request_do_alive(req);
 	if (!response)
-		goto free_req;
+		goto err;
+
+	if (response->alive_state) {
+		c->alive_state = response->alive_state;
+		if (DEBUG)
+			printf("Remember alive_state from response to honor keep-alive\n");
+	}
 
 	if (response->body) {
 		res->body = strdup(response->body);
@@ -596,14 +611,14 @@ __trest_do_json_request (trest_ptr client,
 		}
 		res->json_tokc = jsmnutil_parse_json (res->body, &res->json_tokv, &res->json_toks);
 		if (!res->json_tokc)
-		{
-			// XXX: update auth status of response?
-			printf ("failed to parse_json\n");
-			trest_response_free(res);
-			thttp_response_free(response);
-			res = 0;
-			goto free_req;
-		}
+			{
+				// XXX: update auth status of response?
+				printf ("failed to parse_json\n");
+				trest_response_free(res);
+				thttp_response_free(response);
+				res = 0;
+				goto err;
+			}
 	}
 	// XXX: strvdup this one...
 	res->headers = response->headers;
@@ -617,10 +632,10 @@ __trest_do_json_request (trest_ptr client,
 			do_login_userpass = 1;
 			do_credentials_login(c);
 		}
-	break;
+		break;
 	case THTTP_STATUS_OK:
 		res->status = TREST_AUTH_STATUS_OK;
-	break;
+		break;
 	default:
 		res->status = TREST_AUTH_STATUS_ERROR;
 		// XXX: this needs to be redone in a way that guides
@@ -628,12 +643,20 @@ __trest_do_json_request (trest_ptr client,
 	}
 
 	thttp_response_free(response);
-free_req:
 	thttp_request_free(req);
-
 	if (do_login_userpass)
 		do_login_userpass = 0;
-exit:
+	return (trest_response_ptr) res;
+
+ err:
+	thttp_request_free(req);
+	if (do_login_userpass)
+		do_login_userpass = 0;
+ exiterr:
+	if (c->alive_state) {
+		thttp_close_alive(c->alive_state);
+		c->alive_state = 0;
+	}
 	return (trest_response_ptr) res;
 }
 
@@ -645,7 +668,7 @@ trest_do_json_request (trest_ptr client,
 	trest_response_ptr res = NULL;
 	int tried = 0;
 
-restart_request:
+ restart_request:
 	res = __trest_do_json_request(client, request);
 	if (res) {
 		/*
@@ -653,7 +676,7 @@ restart_request:
 		 * to restart this request again.
 		 */
 		if (!tried && res->status == TREST_AUTH_STATUS_NOTAUTH &&
-				c->status == TREST_AUTH_STATUS_OK) {
+		    c->status == TREST_AUTH_STATUS_OK) {
 			trest_response_free(res);
 			res = NULL;
 			tried = 1;

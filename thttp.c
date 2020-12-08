@@ -73,6 +73,8 @@ int (*my_printf)(const char *fmt, ...) = printf;
 struct http_response_parser {
 	thttp_response_t *out;
 
+	int keep_alive_response;
+
 	size_t headers_at;
 	size_t headers_bufsize;
 	size_t body_at;
@@ -83,6 +85,7 @@ struct http_response_parser {
 
 	int file_error;
 	int file_errno;
+
 	void (*dl_progress_cb)(ssize_t written, ssize_t chunksize, void *priv);
 	void *dl_progress_cb_priv;
 };
@@ -148,7 +151,7 @@ make_http_req (thttp_request_t *req, char **buf)
 	// Host: hostname:port header line goes first (even for HTTP/1.0)
 	*buf = buf_append (*buf, &at, "Host: ", &bufsize);
 	*buf = buf_append (*buf, &at, req->host, &bufsize);
- 	*buf = buf_append (*buf, &at, ":", &bufsize);
+	*buf = buf_append (*buf, &at, ":", &bufsize);
 	*buf = buf_append_int (*buf, &at, req->port, &bufsize);
 	*buf = buf_append (*buf, &at, "\r\n", &bufsize);
 
@@ -157,6 +160,10 @@ make_http_req (thttp_request_t *req, char **buf)
 		*buf = buf_append (*buf, &at, "User-Agent: ", &bufsize);
 		*buf = buf_append (*buf, &at, req->user_agent, &bufsize);
 		*buf = buf_append (*buf, &at, "\r\n", &bufsize);
+	}
+
+	if (req->alive_state) {
+		*buf = buf_append (*buf, &at, "Connection: keep-alive\r\n", &bufsize);
 	}
 
 	// append headers; one each line!
@@ -222,6 +229,10 @@ _response_header(void* opaque, const char* ckey, int nkey, const char* cvalue, i
 {
 	struct http_response_parser* parser = (struct http_response_parser*) opaque;
 
+	if (!strncmp("connection", ckey, sizeof("connection") - 1) &&
+	    !strncmp("keep-alive", cvalue, sizeof("keep-alive") - 1))
+		parser->keep_alive_response = 1;
+
 	if (parser->headers_at + 1 >= parser->headers_bufsize) {
 		parser->headers_bufsize += sizeof(char*) * BUF_BLOCKSIZE;
 		parser->out->headers = realloc(parser->out->headers, parser->headers_bufsize);
@@ -243,10 +254,10 @@ _response_code(void* opaque, int code)
 }
 
 static const struct http_funcs _http_response_funcs = {
-    _response_realloc,
-    _response_body,
-    _response_header,
-    _response_code,
+	_response_realloc,
+	_response_body,
+	_response_header,
+	_response_code,
 };
 
 thttp_request_t* thttp_request_new_0(void);
@@ -325,14 +336,14 @@ static int is_remote_reachable(int sockfd, struct sockaddr *rp, socklen_t len)
 		if (rp->sa_family == AF_INET) {
 
 			if (inet_ntop(AF_INET,
-				&((struct sockaddr_in*)rp)->sin_addr, addr, sizeof(addr))) {
+				      &((struct sockaddr_in*)rp)->sin_addr, addr, sizeof(addr))) {
 				mbedtls_printf( "attempting connection to %s:%d\n",
 						addr, htons(((struct sockaddr_in*)rp)->sin_port));
 			}
 		}
 		else if (rp->sa_family == AF_INET6) {
 			if (inet_ntop(AF_INET6,
-				&((struct sockaddr_in6*)rp)->sin6_addr,addr6, sizeof(addr6))) {
+				      &((struct sockaddr_in6*)rp)->sin6_addr,addr6, sizeof(addr6))) {
 				mbedtls_printf( "attempting connection to %s:%d\n",
 						addr6, htons(((struct sockaddr_in6*)rp)->sin6_port));
 			}
@@ -366,7 +377,7 @@ static int is_remote_reachable(int sockfd, struct sockaddr *rp, socklen_t len)
 	len = sizeof(ret);
 	getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &ret, &len);
 	ret = !ret ? 1 : 0;
-out:
+ out:
 	fcntl(sockfd, F_SETFL, orig_flags);
 	return ret;
 
@@ -379,7 +390,7 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 	int fd = -1;
 	struct addrinfo hints, *result = 0, *rp;
 
- 	// ignore SIGPIPE signal to disable the default behavior (end the process).
+	// ignore SIGPIPE signal to disable the default behavior (end the process).
 	// that way, we can handle send/write errors in our code
 	signal(SIGPIPE, SIG_IGN);
 
@@ -416,7 +427,7 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 		fd = -1; /*Reset socket desc*/
 		rp = rp->ai_next;
 	}
-out:
+ out:
 	if (fd > 0) {
 		int flags = 1;
 		setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &flags, sizeof(flags));
@@ -488,8 +499,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 	mbedtls_entropy_init(&ctx->entropy);
 	if( ( ret = mbedtls_ctr_drbg_seed( &ctx->ctr_drbg, mbedtls_entropy_func, &ctx->entropy,
 					   (const unsigned char *) pers,
-					   strlen( pers ) ) ) != 0 )
-	{
+					   strlen( pers ) ) ) != 0 ) {
 		mbedtls_printf(" failed seeding random generator\n  ! mbedtls_ctr_drbg_seed returned %d\n", ret);
 		goto exit;
 	}
@@ -510,8 +520,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 			}
 
 			ret = mbedtls_x509_crt_parse_file(&ctx->cacert, *buf);
-			if( ret < 0 )
-			{
+			if( ret < 0 ) {
 				mbedtls_printf( " failed loading CA root from %s\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n",
 						*buf, -ret );
 				goto exit;
@@ -528,8 +537,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 		}
 
 		ret = mbedtls_x509_crt_parse_file(&ctx->cacert, getenv(ENV_CACHAIN));
-		if( ret < 0 )
-		{
+		if( ret < 0 ) {
 			mbedtls_printf( " failed to load cert %s\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n",
 					getenv(ENV_CACHAIN), -ret );
 			goto exit;
@@ -545,8 +553,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 		// XXX: make it use our own certs
 		ret = mbedtls_x509_crt_parse( &ctx->cacert, (const unsigned char *) mbedtls_test_cas_pem,
 					      mbedtls_test_cas_pem_len );
-		if( ret < 0 )
-		{
+		if( ret < 0 ) {
 			mbedtls_printf( " failed to parse internal test certs\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n", -ret );
 			goto exit;
 		}
@@ -564,8 +571,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 	}
 
 	sprintf(portc,"%d", req->port);
-	if( ( fd = _sock_connect(req->host, portc, &req->conn ) ) == -1 )
-	{
+	if( ( fd = _sock_connect(req->host, portc, &req->conn ) ) == -1 ) {
 		mbedtls_printf( " failed to connect to %s:%d\n  ! mbedtls_net_connect fd=%d\n\n",
 				req->host, req->port, fd );
 		ret = fd;
@@ -586,8 +592,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 	if( ( ret = mbedtls_ssl_config_defaults( &ctx->conf,
 						 MBEDTLS_SSL_IS_CLIENT,
 						 MBEDTLS_SSL_TRANSPORT_STREAM,
-						 MBEDTLS_SSL_PRESET_DEFAULT ) ) != 0 )
-	{
+						 MBEDTLS_SSL_PRESET_DEFAULT ) ) != 0 ) {
 		mbedtls_printf( " failed\n  ! mbedtls_ssl_config_defaults returned %d\n\n", ret );
 		goto exit;
 	}
@@ -608,14 +613,12 @@ do_ctx_connect_tls (thttp_request_t *req,
 	mbedtls_ssl_conf_rng( &ctx->conf, mbedtls_ctr_drbg_random, &ctx->ctr_drbg );
 	mbedtls_ssl_conf_dbg( &ctx->conf, my_debug, stdout );
 
-	if ((ret = mbedtls_ssl_setup( &ctx->ssl, &ctx->conf)) != 0)
-	{
+	if ((ret = mbedtls_ssl_setup( &ctx->ssl, &ctx->conf)) != 0) {
 		mbedtls_printf( " failed\n  ! mbedtls_ssl_setup returned %d\n\n", ret );
 		goto exit;
 	}
 
-	if ((ret = mbedtls_ssl_set_hostname( &ctx->ssl, req->host )) != 0)
-	{
+	if ((ret = mbedtls_ssl_set_hostname( &ctx->ssl, req->host )) != 0) {
 		mbedtls_printf( " failed\n  ! mbedtls_ssl_set_hostname returned %d\n\n", ret );
 		goto exit;
 	}
@@ -635,12 +638,12 @@ do_ctx_connect_tls (thttp_request_t *req,
 		/*
 		 * TODO: Make 2000 (ms timeout) to a define.
 		 * */
-		
+
 		if ( start + MAX_SECS_FOR_HANDSHAKE < time(NULL))
 			break;
 
-		ret = mbedtls_net_poll(&ctx->server_fd, 
-				MBEDTLS_NET_POLL_WRITE | MBEDTLS_NET_POLL_READ, 2000);
+		ret = mbedtls_net_poll(&ctx->server_fd,
+				       MBEDTLS_NET_POLL_WRITE | MBEDTLS_NET_POLL_READ, 2000);
 		if ( !ret) {
 			if (VERBOSE)
 				mbedtls_printf("Nothing to read from ssl socket yet\n");
@@ -679,7 +682,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 			mbedtls_printf( " ok\n" );
 	}
 	return ret;
-exit:
+ exit:
 	close(fd);
 	return ret;
 }
@@ -723,7 +726,7 @@ do_ctx_tls_write(thttp_request_t* req,
 			 * TODO: Make 2000 (ms timeout) to a define.
 			 * */
 			if ( mbedtls_net_poll(&ctx->server_fd, MBEDTLS_NET_POLL_WRITE, 2000)
-					!= MBEDTLS_NET_POLL_WRITE) {
+			     != MBEDTLS_NET_POLL_WRITE) {
 				break;
 			}
 			ret = mbedtls_ssl_write( &ctx->ssl, (unsigned char*)(buf+at), size);
@@ -732,9 +735,9 @@ do_ctx_tls_write(thttp_request_t* req,
 
 			if(ret < 0) {
 				if (ret != MBEDTLS_ERR_SSL_WANT_WRITE &&
-						ret != MBEDTLS_ERR_SSL_WANT_READ &&
-						ret != MBEDTLS_ERR_SSL_ASYNC_IN_PROGRESS &&
-						ret != MBEDTLS_ERR_SSL_CRYPTO_IN_PROGRESS) {
+				    ret != MBEDTLS_ERR_SSL_WANT_READ &&
+				    ret != MBEDTLS_ERR_SSL_ASYNC_IN_PROGRESS &&
+				    ret != MBEDTLS_ERR_SSL_CRYPTO_IN_PROGRESS) {
 					has_error = ret;
 					break;
 				}
@@ -760,8 +763,7 @@ do_ctx_write(thttp_request_t* req,
 	     char *buf,
 	     int len)
 {
-	if (req->is_tls)
-	{
+	if (req->is_tls) {
 		return do_ctx_tls_write(req, ctx_tls, buf, len);
 	}
 
@@ -785,7 +787,7 @@ do_ctx_tls_read(thttp_request_t* req,
 	int ret = -1;
 	int to_read = len;
 
-	if(DEBUG) {
+	if (DEBUG) {
 		mbedtls_printf( "  < Read from server:" );
 		fflush(stdout);
 	}
@@ -795,7 +797,7 @@ do_ctx_tls_read(thttp_request_t* req,
 	while (len > 0) {
 
 		if ( mbedtls_net_poll(&ctx->server_fd, MBEDTLS_NET_POLL_READ, 2000)
-				!= MBEDTLS_NET_POLL_READ) {
+		     != MBEDTLS_NET_POLL_READ) {
 			if (DEBUG)
 				mbedtls_printf("poll returned -ve value..\n");
 			break;
@@ -812,7 +814,7 @@ do_ctx_tls_read(thttp_request_t* req,
 		}
 		else {
 			if(ret == MBEDTLS_ERR_SSL_WANT_READ ||
-					ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
+			   ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
 				if (DEBUG)
 					mbedtls_printf("will loop again\n");
 				continue; // XXX: make proper enum or something for AGAIN
@@ -864,8 +866,8 @@ do_ctx_tls_close (thttp_request_t* req,
 
 static int
 do_ctx_close(thttp_request_t* req,
-	    struct _req_ctx_plain *ctx_plain,
-	    struct _req_ctx_tls *ctx_tls)
+	     struct _req_ctx_plain *ctx_plain,
+	     struct _req_ctx_tls *ctx_tls)
 {
 	if (req->is_tls) {
 		return do_ctx_tls_close(req, ctx_tls);
@@ -874,19 +876,32 @@ do_ctx_close(thttp_request_t* req,
 	return do_ctx_plain_close(req, ctx_plain);
 }
 
+struct _ctx_state {
+	int is_alive;
+	struct _req_ctx_plain ctx_plain;
+	struct _req_ctx_tls ctx_tls;
+};
+
 static int
 thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *parser)
 {
 	int ret, len, bytes;
-	struct _req_ctx_plain ctx_plain;
-	struct _req_ctx_tls ctx_tls;
+	struct _ctx_state *_ctx;
+	struct _ctx_state _ctx_prototype;
 	char *reqbuf = 0;
 	char filebuf[4096];
 	char resbuf[4*8192];
 	int needmore = 1;
 
-	memset(&ctx_plain, 0, sizeof(ctx_plain));
-	memset(&ctx_tls, 0, sizeof(ctx_tls));
+	memset(&_ctx_prototype, 0, sizeof(_ctx_prototype));
+
+	// keep-alive will have this set up
+	if (req->alive_state) {
+		_ctx = req->alive_state;
+	} else {
+		_ctx = &_ctx_prototype;
+		_ctx->is_alive = 0;
+	}
 
 	parser->out = calloc(1, sizeof(thttp_response_t));
 	if (!parser->out)
@@ -894,13 +909,14 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 
 	if (DEBUG) {
 		mbedtls_printf("Connecting to tcp/%s/%4d...", req->host,
-		       req->port);
+			       req->port);
 		fflush (stdout);
 	}
 
-	if((ret = do_ctx_connect(req, &ctx_plain, &ctx_tls)) < 0) {
+	// only if we are not alive will we do a connect...
+	if(!_ctx->is_alive && (ret = do_ctx_connect(req, &_ctx->ctx_plain, &_ctx->ctx_tls)) < 0) {
 		mbedtls_printf ("ERROR: failed\n  ! connect returned %d\n\n", ret);
-		goto exit_connect;
+		goto err;
 	}
 
 	if (DEBUG){
@@ -913,22 +929,22 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	if (DEBUG)
 		mbedtls_printf ("%s\n", reqbuf);
 
-	while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, reqbuf, len)) <= 0) {
+	while ((ret = do_ctx_write(req, &_ctx->ctx_plain, &_ctx->ctx_tls, reqbuf, len)) <= 0) {
 		if (ret != 0) {
 			mbedtls_printf ("failed\n  ! write returned %d\n\n", ret);
-			goto exit_write;
+			goto err;
 		}
 	}
 
 	if (req->fd) {
-	while (req->fd && ((bytes = read(req->fd, filebuf, 4096)) > 0)) {
-		while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, filebuf, bytes)) <= 0) {
-			if (ret != 0) {
-				mbedtls_printf ("failed\n  ! write returned %d\n\n", ret);
-				goto exit_write;
+		while (req->fd && ((bytes = read(req->fd, filebuf, 4096)) > 0)) {
+			while ((ret = do_ctx_write(req, &_ctx->ctx_plain, &_ctx->ctx_tls, filebuf, bytes)) <= 0) {
+				if (ret != 0) {
+					mbedtls_printf ("failed\n  ! write returned %d\n\n", ret);
+					goto err;
+				}
 			}
 		}
-	}
 	}
 
 	struct http_roundtripper rt;
@@ -939,7 +955,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	while (needmore) {
 		char* data = resbuf;
 		len = sizeof(resbuf);
-		ret = do_ctx_read(req, &ctx_plain, &ctx_tls, resbuf, len);
+		ret = do_ctx_read(req, &_ctx->ctx_plain, &_ctx->ctx_tls, resbuf, len);
 
 		if(ret <= 0) {
 			if (DEBUG)
@@ -956,25 +972,88 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 			data += read;
 			if(parser->file_error) {
 				mbedtls_printf("Error writing to file\n");
-				goto exit;
+				goto err;
 			}
 		}
 	}
 	if(http_iserror(&rt)) {
 		mbedtls_printf("Error parsing data\n");
-		goto exit;
+		goto err;
 	}
 
-exit:
+	// if we are not keeping state alive we close session.
+	if (_ctx && !_ctx->is_alive) {
+		mbedtls_ssl_close_notify(&_ctx->ctx_tls.ssl);
+		do_ctx_close(req, &_ctx->ctx_plain, &_ctx->ctx_tls);
+	}
+
+	if (reqbuf)
+		free (reqbuf);
 	http_free(&rt);
-	mbedtls_ssl_close_notify(&ctx_tls.ssl);
-exit_write:
-	free (reqbuf);
-exit_connect:
-	do_ctx_close(req, &ctx_plain, &ctx_tls);
 
 	return 0;
+ err:
+	if (reqbuf)
+		free (reqbuf);
+	http_free(&rt);
+	if (_ctx) {
+		mbedtls_ssl_close_notify(&_ctx->ctx_tls.ssl);
+		do_ctx_close(req, &_ctx->ctx_plain, &_ctx->ctx_tls);
+	}
+	return -1;
 }
+
+thttp_response_t*
+thttp_request_do_alive (thttp_request_t *req)
+{
+	int rv;
+	struct http_response_parser parser;
+	memset (&parser, 0, sizeof (parser));
+
+	// if we wish to use HTTP 1.0 keep-alive we setup alive_state
+	if (!req->alive_state) {
+		if (DEBUG)
+			mbedtls_printf("alive_state not -- creating ctx/connection\n");
+		req->alive_state = calloc(sizeof(struct _ctx_state), 1);
+	} else if (DEBUG) {
+		mbedtls_printf("alive_state available -- reusing ctx/connection\n");
+	}
+	rv = thttp_request_do_abstract (req, &parser);
+
+	if (DEBUG)
+		mbedtls_printf("thttp parser return: ret = %d, parser.out=%s\n",
+			       rv, (parser.out? "nil":parser.out->body));
+	if (rv) {
+		if (parser.out)
+			free (parser.out);
+		if (req->alive_state)
+			free(req->alive_state);
+		return NULL;
+	}
+
+	if (parser.keep_alive_response) {
+		if (DEBUG)
+			mbedtls_printf("keep alive response retrieved\n");
+		parser.out->alive_state = req->alive_state;
+	} else {
+		if (DEBUG)
+			mbedtls_printf("no keep alive response retrieved \n");
+		free(parser.out->alive_state);
+		parser.out->alive_state = NULL;
+	}
+	return parser.out;
+}
+
+void
+thttp_close_alive (void *alive_state)
+{
+	if (!alive_state)
+		return;
+
+	free(alive_state);
+	return;
+}
+
 
 thttp_response_t*
 thttp_request_do (thttp_request_t *req)
@@ -985,14 +1064,14 @@ thttp_request_do (thttp_request_t *req)
 	rv = thttp_request_do_abstract (req, &parser);
 	if (DEBUG)
 		mbedtls_printf("thttp parser return: ret = %d, parser.out=%s\n",
-			       	rv, (parser.out? "nil":parser.out->body));
+			       rv, (parser.out? "nil":parser.out->body));
 	return parser.out;
 }
 
 thttp_response_t*
 thttp_request_do_file_with_cb (thttp_request_t *req, int fd,
-		void (*progress_cb)(ssize_t written, ssize_t chunksize, void *priv),
-		void *priv)
+			       void (*progress_cb)(ssize_t written, ssize_t chunksize, void *priv),
+			       void *priv)
 {
 	int rv;
 	struct http_response_parser parser;
@@ -1039,105 +1118,105 @@ thttp_status_to_string (thttp_status_t status)
 	case THTTP_STATUS_CREATED:
 		return "CREATED";
 	case THTTP_STATUS_ACCEPTED:
-		 return "ACCEPTED";
+		return "ACCEPTED";
 	case THTTP_STATUS_NON_AUTHORITATIVE_INFORMATION:
-		 return "NON_AUTHORITATIVE_INFORMATION";
+		return "NON_AUTHORITATIVE_INFORMATION";
 	case THTTP_STATUS_NO_CONTENT:
-		 return "NO_CONTENT";
+		return "NO_CONTENT";
 	case THTTP_STATUS_RESET_CONTENT:
-		 return "RESET_CONTENT";
+		return "RESET_CONTENT";
 	case THTTP_STATUS_PARTIAL_CONTENT:
-		 return "PARTIAL_CONTENT";
+		return "PARTIAL_CONTENT";
 	case THTTP_STATUS_MULTI_STATUS:
-		 return "MULTI_STATUS";
+		return "MULTI_STATUS";
 	case THTTP_STATUS_MULTIPLE_CHOICES:
-		 return "MULTIPLE_CHOICES";
+		return "MULTIPLE_CHOICES";
 	case THTTP_STATUS_MOVED_PERMANENTLY:
-		 return "MOVED_PERMANENTLY";
+		return "MOVED_PERMANENTLY";
 	case THTTP_STATUS_FOUND:
-		 return "FOUND";
+		return "FOUND";
 	case THTTP_STATUS_SEE_OTHER:
-		 return "SEE_OTHER";
+		return "SEE_OTHER";
 	case THTTP_STATUS_NOT_MODIFIED:
-		 return "NOT_MODIFIED";
+		return "NOT_MODIFIED";
 	case THTTP_STATUS_USE_PROXY:
-		 return "USE_PROXY";
+		return "USE_PROXY";
 	case THTTP_STATUS_SWITCH_PROXY:
-		 return "SWITCH_PROXY";
+		return "SWITCH_PROXY";
 	case THTTP_STATUS_TEMPORARY_REDIRECT:
-		 return "TEMPORARY_REDIRECT";
+		return "TEMPORARY_REDIRECT";
 	case THTTP_STATUS_BAD_REQUEST:
-		 return "BAD_REQUEST";
+		return "BAD_REQUEST";
 	case THTTP_STATUS_UNAUTHORIZED:
-		 return "UNAUTHORIZED";
+		return "UNAUTHORIZED";
 	case THTTP_STATUS_PAYMENT_REQUIRED:
-		 return "PAYMENT_REQUIRED";
+		return "PAYMENT_REQUIRED";
 	case THTTP_STATUS_FORBIDDEN:
-		 return "FORBIDDEN";
+		return "FORBIDDEN";
 	case THTTP_STATUS_NOT_FOUND:
-		 return "NOT_FOUND";
+		return "NOT_FOUND";
 	case THTTP_STATUS_METHOD_NOT_ALLOWED:
-		 return "METHOD_NOT_ALLOWED";
+		return "METHOD_NOT_ALLOWED";
 	case THTTP_STATUS_NOT_ACCEPTABLE:
-		 return "NOT_ACCEPTABLE";
+		return "NOT_ACCEPTABLE";
 	case THTTP_STATUS_PROXY_AUTHENTICATION_REQUIRED:
-		 return "PROXY_AUTHENTICATION_REQUIRED";
+		return "PROXY_AUTHENTICATION_REQUIRED";
 	case THTTP_STATUS_REQUEST_TIMEOUT:
-		 return "REQUEST_TIMEOUT";
+		return "REQUEST_TIMEOUT";
 	case THTTP_STATUS_CONFLICT:
-		 return "CONFLICT";
+		return "CONFLICT";
 	case THTTP_STATUS_GONE:
-		 return "GONE";
+		return "GONE";
 	case THTTP_STATUS_LENGTH_REQUIRED:
-		 return "LENGTH_REQUIRED";
+		return "LENGTH_REQUIRED";
 	case THTTP_STATUS_PRECONDITION_FAILED:
-		 return "PRECONDITION_FAILED";
+		return "PRECONDITION_FAILED";
 	case THTTP_STATUS_REQUEST_ENTITY_TOO_LARGE:
-		 return "REQUEST_ENTITY_TOO_LARGE";
+		return "REQUEST_ENTITY_TOO_LARGE";
 	case THTTP_STATUS_REQUEST_URI_TOO_LONG:
-		 return "REQUEST_URI_TOO_LONG";
+		return "REQUEST_URI_TOO_LONG";
 	case THTTP_STATUS_UNSUPPORTED_MEDIA_TYPE:
-		 return "UNSUPPORTED_MEDIA_TYPE";
+		return "UNSUPPORTED_MEDIA_TYPE";
 	case THTTP_STATUS_REQUESTED_RANGE_NOT_SATISFIABLE:
-		 return "REQUESTED_RANGE_NOT_SATISFIABLE";
+		return "REQUESTED_RANGE_NOT_SATISFIABLE";
 	case THTTP_STATUS_EXPECTATION_FAILED:
-		 return "EXPECTATION_FAILED";
+		return "EXPECTATION_FAILED";
 	case THTTP_STATUS_UNPROCESSABLE_ENTITY:
-		 return "UNPROCESSABLE_ENTITY";
+		return "UNPROCESSABLE_ENTITY";
 	case THTTP_STATUS_LOCKED:
-		 return "LOCKED";
+		return "LOCKED";
 	case THTTP_STATUS_FAILED_DEPENDENCY:
-		 return "FAILED_DEPENDENCY";
+		return "FAILED_DEPENDENCY";
 	case THTTP_STATUS_UNORDERED_COLLECTION:
-		 return "UNORDERED_COLLECTION";
+		return "UNORDERED_COLLECTION";
 	case THTTP_STATUS_UPGRADE_REQUIRED:
-		 return "UPGRADE_REQUIRED";
+		return "UPGRADE_REQUIRED";
 	case THTTP_STATUS_NO_RESPONSE:
-		 return "NO_RESPONSE";
+		return "NO_RESPONSE";
 	case THTTP_STATUS_RETRY_WITH:
-		 return "RETRY_WITH";
+		return "RETRY_WITH";
 	case THTTP_STATUS_BLOCKED_BY_WINDOWS_PARENTAL_CONTROLS:
-		 return "BLOCKED_BY_WINDOWS_PARENTAL_CONTROLS";
+		return "BLOCKED_BY_WINDOWS_PARENTAL_CONTROLS";
 	case THTTP_STATUS_UNAVAILABLE_FOR_LEGAL_REASONS:
-		 return "UNAVAILABLE_FOR_LEGAL_REASONS";
+		return "UNAVAILABLE_FOR_LEGAL_REASONS";
 	case THTTP_STATUS_INTERNAL_SERVER_ERROR:
-		 return "INTERNAL_SERVER_ERROR";
+		return "INTERNAL_SERVER_ERROR";
 	case THTTP_STATUS_NOT_IMPLEMENTED:
-		 return "NOT_IMPLEMENTED";
+		return "NOT_IMPLEMENTED";
 	case THTTP_STATUS_BAD_GATEWAY:
-		 return "BAD_GATEWAY";
+		return "BAD_GATEWAY";
 	case THTTP_STATUS_SERVICE_UNAVAILABLE:
-		 return "SERVICE_UNAVAILABLE";
+		return "SERVICE_UNAVAILABLE";
 	case THTTP_STATUS_GATEWAY_TIMEOUT:
-		 return "GATEWAY_TIMEOUT";
+		return "GATEWAY_TIMEOUT";
 	case THTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED:
-		 return "HTTP_VERSION_NOT_SUPPORTED";
+		return "HTTP_VERSION_NOT_SUPPORTED";
 	case THTTP_STATUS_VARIANT_ALSO_NEGOTIATES:
-		 return "VARIANT_ALSO_NEGOTIATES";
+		return "VARIANT_ALSO_NEGOTIATES";
 	case THTTP_STATUS_INSUFFICIENT_STORAGE:
-		 return "INSUFFICIENT_STORAGE";
+		return "INSUFFICIENT_STORAGE";
 	case THTTP_STATUS_BANDWIDTH_LIMIT_EXCEEDED:
-		 return "BANDWIDTH_LIMIT_EXCEEDED";
+		return "BANDWIDTH_LIMIT_EXCEEDED";
 	case THTTP_STATUS_NOT_EXTENDED:
 		return "NOT_EXTENDED";
 	default:
