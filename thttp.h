@@ -57,6 +57,8 @@ typedef struct thttp_request {
 	char *body_content_type;
 
 	struct sockaddr conn;
+
+	void *alive_state;
 } thttp_request_t;
 
 // super struct for tls requests. ensure your thttp_request_t file
@@ -93,10 +95,17 @@ typedef struct thttp_response {
 	char **headers;
 	char *body;
 	thttp_status_t code;
+	void *alive_state; // opaque keep alive state to allow for connection reuse
 } thttp_response_t;
 
 
 void thttp_set_log_func(int (*func)(const char *fmt, ...));
+
+// full sync variant for http requests - with keep alive state
+thttp_response_t* thttp_request_do_alive (thttp_request_t* req);
+
+// full sync variant for http requests
+void thttp_close_alive (void *alive_state);
 
 // full sync variant for http requests
 thttp_response_t* thttp_request_do (thttp_request_t* req);
