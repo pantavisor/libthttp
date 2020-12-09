@@ -588,6 +588,9 @@ __trest_do_json_request (trest_ptr client,
 	if (!response)
 		goto free_req;
 
+	// remember the updated sock addr yay!
+	c->conn = req->conn;
+
 	if (response->body) {
 		res->body = strdup(response->body);
 		if (!res->body) {

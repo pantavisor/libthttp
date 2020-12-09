@@ -409,8 +409,10 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 		if (fd < 0)
 			goto out;
 
-		if (is_remote_reachable(fd, rp->ai_addr, rp->ai_addrlen))
+		if (is_remote_reachable(fd, rp->ai_addr, rp->ai_addrlen)) {
+			*sock = *rp->ai_addr;
 			break;
+		}
 
 		close(fd);
 		fd = -1; /*Reset socket desc*/
