@@ -32,6 +32,8 @@
 #include <netinet/in.h>
 #include <stdbool.h>
 
+#define DEBUG 1
+
 enum trest_rtype {
 	trest_rtype_JSON =1,
 	trest_rtype_BLOB,
@@ -567,6 +569,9 @@ __trest_do_json_request (trest_ptr client,
 	if (req_in->json_body)
 		req->body_content_type = "application/json";
 
+	if (DEBUG)
+		printf("do_json_request: %s\n", req->path);
+
 	// XXX: this below assumes that header array has two 0 elements
 	// at the end already allocated; too horrible approach; refactor to
 	// use argz glibc extension instead for headers and queries
@@ -593,15 +598,23 @@ __trest_do_json_request (trest_ptr client,
 			printf("Recycling thttp alive_state honoring keep-alive\n");
 	}
 
+	printf("BEFORE ALIVE\n");
 	response = thttp_request_do_alive(req);
+	printf("AFTER ALIVE\n");
 	if (!response)
 		goto err;
+	printf("AFTERAFTER ALIVE\n");
 
+	// if reponse has an alive_state we can keep it.
 	if (response->alive_state) {
-		c->alive_state = response->alive_state;
+		if (response->alive_state != c->alive_state) {
+			thttp_close_alive(c->alive_state);
+			c->alive_state = response->alive_state;
+		}
 		if (DEBUG)
 			printf("Remember alive_state from response to honor keep-alive\n");
 	}
+	printf("AFTERAFTER ALIVE 1\n");
 
 	if (response->body) {
 		res->body = strdup(response->body);
@@ -610,19 +623,21 @@ __trest_do_json_request (trest_ptr client,
 			response->body = NULL;
 		}
 		res->json_tokc = jsmnutil_parse_json (res->body, &res->json_tokv, &res->json_toks);
-		if (!res->json_tokc)
-			{
-				// XXX: update auth status of response?
-				printf ("failed to parse_json\n");
-				trest_response_free(res);
-				thttp_response_free(response);
-				res = 0;
-				goto err;
-			}
+		if (!res->json_tokc) {
+			// XXX: update auth status of response?
+			printf ("failed to parse_json\n");
+			trest_response_free(res);
+			thttp_response_free(response);
+			res = 0;
+			goto err;
+		}
 	}
+	printf("AFTERAFTER ALIVE 2\n");
 	// XXX: strvdup this one...
 	res->headers = response->headers;
 	res->code = response->code;
+
+	printf("AFTERAFTER ALIVE 3\n");
 
 	switch (response->code) {
 	case THTTP_STATUS_UNAUTHORIZED:
@@ -642,16 +657,23 @@ __trest_do_json_request (trest_ptr client,
 		// clients on how to solve...
 	}
 
+	printf("AFTERAFTER ALIVE 4\n");
+
+	if (DEBUG)
+		printf("do_json_request end: %s\n", req->path);
 	thttp_response_free(response);
-	thttp_request_free(req);
 	if (do_login_userpass)
 		do_login_userpass = 0;
+	thttp_request_free(req);
 	return (trest_response_ptr) res;
 
  err:
-	thttp_request_free(req);
+	if (DEBUG)
+		printf("do_json_request err: %s\n", req->path);
 	if (do_login_userpass)
 		do_login_userpass = 0;
+	if (req)
+		thttp_request_free(req);
  exiterr:
 	if (c->alive_state) {
 		thttp_close_alive(c->alive_state);
@@ -675,11 +697,13 @@ trest_do_json_request (trest_ptr client,
 		 * Were we able to refresh credentials? If yes attempt
 		 * to restart this request again.
 		 */
+
 		if (!tried && res->status == TREST_AUTH_STATUS_NOTAUTH &&
 		    c->status == TREST_AUTH_STATUS_OK) {
 			trest_response_free(res);
 			res = NULL;
 			tried = 1;
+			printf("RETARTING REQUEST AFTER AUTH\n");
 			goto restart_request;
 		}
 	}

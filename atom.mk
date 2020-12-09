@@ -34,3 +34,15 @@ LOCAL_COPY_FILES := certs/api.pantahub.com.chain.pem:certs/ \
 					certs/localhost.chain.pem:certs/
 
 include $(BUILD_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libthttp-examples
+LOCAL_DESCRIPTION := trest C examples
+LOCAL_LIBRARIES := libthttp
+
+LOCAL_SRC_FILES := trest-keep-alive.c
+
+include $(BUILD_EXECUTABLE)
+
+

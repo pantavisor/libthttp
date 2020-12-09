@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Pantacor Ltd.
+ * Copyright (c) 2017-2020 Pantacor Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -64,6 +64,8 @@
 
 #include "thttp.h"
 #include "tinyhttp/http.h"
+
+#define DEBUG 1
 
 #define BUF_BLOCKSIZE 8192
 #define ENV_CACHAIN "THTTP_CAFILE" // XXX: this has to go away; example should put the file in request
@@ -419,6 +421,8 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 
 		if (fd < 0)
 			goto out;
+
+        	fcntl(fd, F_SETFL, orig_flags | O_NONBLOCK);
 
 		if (is_remote_reachable(fd, rp->ai_addr, rp->ai_addrlen))
 			break;
@@ -794,37 +798,50 @@ do_ctx_tls_read(thttp_request_t* req,
 
 	memset(buf, 0, len);
 
-	while (len > 0) {
+	mbedtls_printf( "  < Read from server 2:" );
 
-		if ( mbedtls_net_poll(&ctx->server_fd, MBEDTLS_NET_POLL_READ, 2000)
-		     != MBEDTLS_NET_POLL_READ) {
+	while (len > 0) {
+		if (DEBUG) {
+			mbedtls_printf( "  . Read from server 1\n" );
+		}
+
+		if ( mbedtls_net_poll(&ctx->server_fd, MBEDTLS_NET_POLL_READ, 2000) < 0) {
 			if (DEBUG)
 				mbedtls_printf("poll returned -ve value..\n");
 			break;
 		}
 
+		mbedtls_printf( "  . Read from server 2\n" );
 		ret = mbedtls_ssl_read(&ctx->ssl, (unsigned char*)buf , len);
-
 		if (ret == 0 )
-			break;
-
+			return 0;
 		else if (ret > 0) {
 			len -= ret;
 			buf += ret;
+			break;
 		}
 		else {
 			if(ret == MBEDTLS_ERR_SSL_WANT_READ ||
 			   ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
 				if (DEBUG)
-					mbedtls_printf("will loop again\n");
-				continue; // XXX: make proper enum or something for AGAIN
+					mbedtls_printf("would block, won't loop again\n");
+				break; // XXX: make proper enum or something for AGAIN
 			}
-			else
+			else {
+				mbedtls_printf("SOME unexpected return value happened. check it out %d\n", ret);
 				break;
+			}
 		}
+		mbedtls_printf( "  . Read from server 3\n" );
+
+		if (len != ret)
+			break;
+
+		mbedtls_printf( "  . Read from server 4\n" );
+
 	}
 	if (DEBUG)
-		mbedtls_printf("%d bytes read\n\n%s", to_read, (char *) buf - (to_read - len));
+		mbedtls_printf("%d bytes read\n\n%s", to_read - len, (char *) buf - (to_read - len));
 
 	return to_read - len;
 }
@@ -895,6 +912,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 
 	memset(&_ctx_prototype, 0, sizeof(_ctx_prototype));
 
+	printf ("AB 1\n");
 	// keep-alive will have this set up
 	if (req->alive_state) {
 		_ctx = req->alive_state;
@@ -902,10 +920,13 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 		_ctx = &_ctx_prototype;
 		_ctx->is_alive = 0;
 	}
+	printf ("AB 2\n");
 
 	parser->out = calloc(1, sizeof(thttp_response_t));
 	if (!parser->out)
 		return -1;
+
+	printf ("AB 3\n");
 
 	if (DEBUG) {
 		mbedtls_printf("Connecting to tcp/%s/%4d...", req->host,
@@ -918,16 +939,20 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 		mbedtls_printf ("ERROR: failed\n  ! connect returned %d\n\n", ret);
 		goto err;
 	}
+	printf ("AB 4\n");
+
+	_ctx->is_alive = 1;
 
 	if (DEBUG){
 		mbedtls_printf ("Write to server:\n");
-		fflush (stdout);
 	}
 
 	len = make_http_req(req, &reqbuf);
+	printf ("AB 5\n");
 
 	if (DEBUG)
 		mbedtls_printf ("%s\n", reqbuf);
+	fflush (stdout);
 
 	while ((ret = do_ctx_write(req, &_ctx->ctx_plain, &_ctx->ctx_tls, reqbuf, len)) <= 0) {
 		if (ret != 0) {
@@ -936,6 +961,8 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 		}
 	}
 
+	printf ("AB 6\n");
+		
 	if (req->fd) {
 		while (req->fd && ((bytes = read(req->fd, filebuf, 4096)) > 0)) {
 			while ((ret = do_ctx_write(req, &_ctx->ctx_plain, &_ctx->ctx_tls, filebuf, bytes)) <= 0) {
@@ -947,25 +974,28 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 		}
 	}
 
+	printf ("AB 7\n");
+
 	struct http_roundtripper rt;
 	http_init(&rt, _http_response_funcs, parser);
 
 	memset(resbuf, 0, sizeof(resbuf));
 
 	while (needmore) {
+		printf ("AB 7a\n");
 		char* data = resbuf;
 		len = sizeof(resbuf);
 		ret = do_ctx_read(req, &_ctx->ctx_plain, &_ctx->ctx_tls, resbuf, len);
+		printf ("AB 7aa\n");
 
 		if(ret <= 0) {
 			if (DEBUG)
 				mbedtls_printf ("\n---FINISHED or FAILED: ssl_read returned %d\n\n", ret);
-			break;
+			goto err;
 		}
 
-		len = ret;
-
 		while(needmore && ret) {
+			printf ("AB 7b\n");
 			int read;
 			needmore = http_data(&rt, resbuf, ret, &read);
 			ret -= read;
@@ -976,6 +1006,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 			}
 		}
 	}
+	printf ("AB 8\n");
 	if(http_iserror(&rt)) {
 		mbedtls_printf("Error parsing data\n");
 		goto err;
@@ -986,6 +1017,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 		mbedtls_ssl_close_notify(&_ctx->ctx_tls.ssl);
 		do_ctx_close(req, &_ctx->ctx_plain, &_ctx->ctx_tls);
 	}
+	printf ("AB 9\n");
 
 	if (reqbuf)
 		free (reqbuf);
@@ -1000,6 +1032,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 		mbedtls_ssl_close_notify(&_ctx->ctx_tls.ssl);
 		do_ctx_close(req, &_ctx->ctx_plain, &_ctx->ctx_tls);
 	}
+	_ctx->is_alive = 0;
 	return -1;
 }
 
@@ -1018,28 +1051,39 @@ thttp_request_do_alive (thttp_request_t *req)
 	} else if (DEBUG) {
 		mbedtls_printf("alive_state available -- reusing ctx/connection\n");
 	}
+
+	printf("DO ABSTRACT\n");
 	rv = thttp_request_do_abstract (req, &parser);
+	printf("DO ABSTRACT DONE\n");
 
 	if (DEBUG)
 		mbedtls_printf("thttp parser return: ret = %d, parser.out=%s\n",
 			       rv, (parser.out? "nil":parser.out->body));
 	if (rv) {
+		if (parser.out->alive_state)
+			free (parser.out->alive_state);
 		if (parser.out)
 			free (parser.out);
 		if (req->alive_state)
-			free(req->alive_state);
+			thttp_close_alive (req->alive_state);
+		req->alive_state = NULL;
 		return NULL;
 	}
 
+	printf("DO ABSTRACT SUCCESS\n");
 	if (parser.keep_alive_response) {
 		if (DEBUG)
 			mbedtls_printf("keep alive response retrieved\n");
 		parser.out->alive_state = req->alive_state;
+		printf("DO ABSTRACT FULL SUCCESS\n");
 	} else {
 		if (DEBUG)
 			mbedtls_printf("no keep alive response retrieved \n");
 		free(parser.out->alive_state);
 		parser.out->alive_state = NULL;
+		thttp_close_alive(req->alive_state);
+		req->alive_state = NULL;
+
 	}
 	return parser.out;
 }
