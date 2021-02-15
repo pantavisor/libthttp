@@ -568,7 +568,8 @@ do_ctx_connect_tls (thttp_request_t *req,
 	sprintf(portc,"%d", req->port);
 	if( ( fd = _sock_connect(req->host, portc, &req->conn ) ) == -1 )
 	{
-		mbedtls_printf( " failed to connect to %s:%d\n  ! mbedtls_net_connect fd=%d\n\n",
+		if (VERBOSE)
+			mbedtls_printf( " failed to connect to %s:%d\n  ! mbedtls_net_connect fd=%d\n\n",
 				req->host, req->port, fd );
 		ret = fd;
 		goto exit;
@@ -900,10 +901,8 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 		fflush (stdout);
 	}
 
-	if((ret = do_ctx_connect(req, &ctx_plain, &ctx_tls)) < 0) {
-		mbedtls_printf ("ERROR: failed\n  ! connect returned %d\n\n", ret);
+	if((ret = do_ctx_connect(req, &ctx_plain, &ctx_tls)) < 0)
 		goto exit_connect;
-	}
 
 	if (DEBUG){
 		mbedtls_printf ("Write to server:\n");
