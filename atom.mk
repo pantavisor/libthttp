@@ -24,8 +24,7 @@ LOCAL_INSTALL_HEADERS := thttp.h \
 						trest.h \
 						trail.h
 
-LOCAL_COPY_FILES := certs/api.pantahub.com.chain.pem:certs/ \
-					certs/api2pantahubcom.crt:certs/ \
+LOCAL_COPY_FILES := \
 					certs/AppSpotGoogleCloudChain-long.pem:certs/ \
 					certs/BaltimoreCyberTrustRoot.crt:certs/ \
 					certs/DigiCertBaltimoreCA-2G2.crt:certs/ \
