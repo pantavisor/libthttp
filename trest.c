@@ -535,6 +535,7 @@ __trest_do_json_request (trest_ptr client,
 	struct trest_request *req_in = (struct trest_request*) request;
 	struct trest *c = (struct trest*) client;
 	static char do_login_userpass = 0;
+	char *headers_i = NULL;
 
 	if (!res)
 		goto exit;
@@ -569,8 +570,6 @@ __trest_do_json_request (trest_ptr client,
 	// use argz glibc extension instead for headers and queries
 	if (c->access_token) {
 		const char *autht = "Authorization: Bearer %s";
-		char *headers_i = NULL;
-		
 		headers_i = malloc(strlen(autht) + strlen (c->access_token) + 1);
 		if (headers_i) {
 			char *headers[] = {headers_i, NULL};
@@ -632,6 +631,8 @@ __trest_do_json_request (trest_ptr client,
 
 	thttp_response_free(response);
 free_req:
+	if (headers_i)
+		free(headers_i);
 	thttp_request_free(req);
 
 	if (do_login_userpass)
