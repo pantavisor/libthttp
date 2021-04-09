@@ -194,6 +194,11 @@ make_http_req (thttp_request_t *req, char **buf)
 static void*
 _response_realloc(void* opaque, void* ptr, int size)
 {
+	if (size <= 0) {
+		free(ptr);
+		return NULL;
+	}
+
 	return realloc(ptr, size);
 }
 
