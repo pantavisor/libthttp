@@ -152,6 +152,9 @@ make_http_req (thttp_request_t *req, char **buf)
 	*buf = buf_append_int (*buf, &at, req->port, &bufsize);
 	*buf = buf_append (*buf, &at, "\r\n", &bufsize);
 
+	// Connection: close - always to prevent TIMEWAIT sockets
+	*buf = buf_append (*buf, &at, "Connection: close\r\n", &bufsize);
+
 	// User-Agent: user agent if provided
 	if (req->user_agent) {
 		*buf = buf_append (*buf, &at, "User-Agent: ", &bufsize);
