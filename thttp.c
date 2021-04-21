@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Pantacor Ltd.
+ * Copyright (c) 2017-2021 Pantacor Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -138,6 +138,9 @@ make_http_req (thttp_request_t *req, char **buf)
 	// append METHOD /PATH/ HTTP/VERSION line
 	*buf = buf_append (*buf, &at, thttp_method_to_string (req->method), &bufsize);
 	*buf = buf_append (*buf, &at, " ", &bufsize);
+	if (req->baseurl) {
+		*buf = buf_append (*buf, &at, req->baseurl, &bufsize);
+	}
 	*buf = buf_append (*buf, &at, req->path, &bufsize);
 	*buf = buf_append (*buf, &at, " ", &bufsize);
 	*buf = buf_append (*buf, &at, thttp_proto_to_string (req->proto), &bufsize);
@@ -284,6 +287,8 @@ thttp_request_tls_new_0()
 void
 thttp_request_free (thttp_request_t* ptr)
 {
+	if (ptr->baseurl)
+		free(ptr->baseurl);
 	free (ptr);
 }
 
@@ -398,7 +403,7 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 	fd = socket(sock->sa_family, SOCK_STREAM, IPPROTO_IP);
 	if (fd > 0) {
 		if (is_remote_reachable(fd, sock, sizeof(*sock)))
-			return fd;
+			goto ret;
 
 		close(fd);
 		fd = -1;
@@ -437,6 +442,7 @@ out:
 	if (result)
 		freeaddrinfo(result);
 
+ret:
 	return fd;
 }
 
@@ -446,8 +452,14 @@ thttp_request_connect_plain (thttp_request_t* req,
 			     struct _req_ctx_plain *ctx)
 {
 	char portc[16];
-	snprintf(portc, sizeof(portc), "%d", req->port);
-	ctx->server_fd = _sock_connect(req->host, portc, &req->conn);
+	// if proxy we connect to proxy
+	if (req->host_proxy && strlen(req->host_proxy) > 0) {
+		snprintf(portc, sizeof(portc), "%d", req->port_proxy);
+		ctx->server_fd = _sock_connect(req->host_proxy, portc, &req->conn);
+	} else {
+		snprintf(portc, sizeof(portc), "%d", req->port);
+		ctx->server_fd = _sock_connect(req->host, portc, &req->conn);
+	}
 	if (DEBUG)
 		mbedtls_printf (" OK\n");
 
@@ -574,8 +586,15 @@ do_ctx_connect_tls (thttp_request_t *req,
 	}
 
 	static int errshown = 0;
-	sprintf(portc,"%d", req->port);
-	if( ( fd = _sock_connect(req->host, portc, &req->conn ) ) == -1 )
+	char *host;
+	if (req->host_proxy && strlen(req->host_proxy) > 0) {
+		snprintf(portc, sizeof(portc), "%d", req->port_proxy);
+		host = req->host_proxy;
+	} else {
+		snprintf(portc, sizeof(portc), "%d", req->port);
+		host = req->host;
+	}
+	if( ( fd = _sock_connect(host, portc, &req->conn ) ) == -1 )
 	{
 		if (!errshown) {
 			mbedtls_printf("failed to connect to %s:%d!\n", req->host, req->port );
