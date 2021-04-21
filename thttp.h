@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Pantacor Ltd.
+ * Copyright (c) 2017-2021 Pantacor Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -45,8 +45,12 @@ typedef struct thttp_request {
 	char *host;
 	int port;
 
+	char *host_proxy;
+	int port_proxy;
+
 	const char *user_agent;
 
+	char *baseurl;
 	char *path;
 	char **headers;
 

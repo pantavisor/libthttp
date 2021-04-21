@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Pantacor Ltd.
+ * Copyright (c) 2017-2021 Pantacor Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -56,6 +56,8 @@ struct trest {
 
 	char *host;
 	int port;
+	char *host_proxy;
+	int port_proxy;
 
 	char **credentials;
 	char *access_token;
@@ -64,6 +66,8 @@ struct trest {
 	const char *user_agent;
 
 	int is_tls;
+	int is_tls_proxy;
+
 	char **tls_cafiles;
 	struct sockaddr conn;
 
@@ -176,7 +180,7 @@ do_credentials_login_userpass (trest_ptr client, void *cb_data)
 
 	if (DEBUG)
 		printf ("do_credentials_login code: %d\n", r->code);
-exit:
+
 	trest_request_free(p);
 	return r;
 }
@@ -306,6 +310,15 @@ trest_new_tls_from_userpass(const char* host, int port,
 	}
 
 	return (trest_ptr) client;
+}
+
+void
+trest_set_proxy(trest_ptr c, char *host, int port, int tls) {
+	struct trest *client = c;
+
+	client->host_proxy=host;
+	client->port_proxy=port;
+	client->is_tls_proxy=tls;
 }
 
 void
@@ -549,8 +562,14 @@ __trest_do_json_request (trest_ptr client,
 	if (!req)
 		goto exit;
 
-	if (c->is_tls)
+	if (c->is_tls) {
 		((thttp_request_tls_t*)req)->crtfiles = c->tls_cafiles;
+		req->baseurl = calloc(1, sizeof(char)*(strlen("https://") + strlen(c->host) + 1 /* : */ + 5 /* port */ + 2 /* 0-delim */));
+		sprintf(req->baseurl, "https://%s:%d", c->host, c->port);
+	} else {
+		req->baseurl = calloc(1, sizeof(char)*(strlen("https://") + strlen(c->host) + 1 /* : */ + 5 /* port */ + 2 /* 0-delim */));
+		sprintf(req->baseurl, "http://%s:%d", c->host, c->port);
+	}
 
 	req->method = req_in->method;
 	req->proto = THTTP_PROTO_HTTP;
@@ -559,6 +578,10 @@ __trest_do_json_request (trest_ptr client,
 	req->user_agent = c->user_agent;
 	req->host = c->host;
 	req->port = c->port;
+	req->host_proxy = c->host_proxy;
+	req->port_proxy = c->port_proxy;
+	if (req->host_proxy)
+		req->is_tls = c->is_tls_proxy;
 	req->body = req_in->json_body;
 	req->headers = req_in->headers;
 	req->conn = c->conn;

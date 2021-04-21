@@ -103,6 +103,10 @@ trest_new_tls_with_login_handler(const char* host, int port,
 			const char **ca_files,
 			const char *user_agent,
 			const struct sockaddr *cached_sock);
+
+void
+trest_set_proxy(trest_ptr c, char *host, int port, int tls);
+
 void
 trest_free (trest_ptr ptr);
 
