@@ -174,7 +174,7 @@ static int setup_client(trest_ptr client) {
 			return 129;
 		}
 
-		trest_set_proxy(client, strdup(ip), port, is_tls, !trest_noproxyconnect);
+		trest_set_proxy_connect(client, strdup(ip), port, is_tls, !trest_noproxyconnect);
 	}
 
 	return 0;
