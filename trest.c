@@ -67,6 +67,7 @@ struct trest {
 
 	int is_tls;
 	int is_tls_proxy;
+	int proxyconnect;
 
 	char **tls_cafiles;
 	struct sockaddr conn;
@@ -313,12 +314,18 @@ trest_new_tls_from_userpass(const char* host, int port,
 }
 
 void
-trest_set_proxy(trest_ptr c, char *host, int port, int tls) {
+trest_set_proxy (trest_ptr c, char *host, int port, int tls) {
+	trest_set_proxy_connect(c, host, port, tls, true);
+}
+
+void
+trest_set_proxy_connect (trest_ptr c, char *host, int port, int tls, int proxyconnect) {
 	struct trest *client = c;
 
 	client->host_proxy=host;
 	client->port_proxy=port;
 	client->is_tls_proxy=tls;
+	client->proxyconnect=proxyconnect;
 }
 
 void
@@ -582,6 +589,8 @@ __trest_do_json_request (trest_ptr client,
 	req->port_proxy = c->port_proxy;
 	if (req->host_proxy)
 		req->is_tls = c->is_tls_proxy;
+	if (req->host_proxy)
+		req->proxyconnect = c->proxyconnect;
 	req->body = req_in->json_body;
 	req->headers = req_in->headers;
 	req->conn = c->conn;

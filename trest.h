@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Pantacor Ltd.
+ * Copyright (c) 2017-2021 Pantacor Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -106,6 +106,8 @@ trest_new_tls_with_login_handler(const char* host, int port,
 
 void
 trest_set_proxy(trest_ptr c, char *host, int port, int tls);
+void
+trest_set_proxy_connect(trest_ptr c, char *host, int port, int tls, int proxyconnect);
 
 void
 trest_free (trest_ptr ptr);

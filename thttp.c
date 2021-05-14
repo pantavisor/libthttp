@@ -151,7 +151,7 @@ make_http_req (thttp_request_t *req, char **buf)
 	// Host: hostname:port header line goes first (even for HTTP/1.0)
 	*buf = buf_append (*buf, &at, "Host: ", &bufsize);
 	*buf = buf_append (*buf, &at, req->host, &bufsize);
- 	*buf = buf_append (*buf, &at, ":", &bufsize);
+	*buf = buf_append (*buf, &at, ":", &bufsize);
 	*buf = buf_append_int (*buf, &at, req->port, &bufsize);
 	*buf = buf_append (*buf, &at, "\r\n", &bufsize);
 
@@ -392,7 +392,7 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 	int fd = -1;
 	struct addrinfo hints, *result = 0, *rp;
 
- 	// ignore SIGPIPE signal to disable the default behavior (end the process).
+	// ignore SIGPIPE signal to disable the default behavior (end the process).
 	// that way, we can handle send/write errors in our code
 	signal(SIGPIPE, SIG_IGN);
 
@@ -479,12 +479,12 @@ static void my_debug (void *ctx, int level,
 
 
 static int
-do_ctx_connect_tls (thttp_request_t *req,
+do_ctx_connect_tls (int fd,
+		    thttp_request_t *req,
 		    struct _req_ctx_tls *ctx)
 {
 	const char *pers = "thttp_client";
-	int ret = 0, fd = -1;
-	char portc[16];
+	int ret = 0;
 	uint32_t flags;
 	thttp_request_tls_t *tls_req = (thttp_request_tls_t*) req;
 	time_t start;
@@ -516,7 +516,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 		goto exit;
 	}
 
-	if (VERBOSE)
+	if (DEBUG)
 		mbedtls_printf(" ok\n");
 
 	/*
@@ -525,7 +525,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 	if (tls_req->crtfiles) {
 		char **buf = tls_req->crtfiles;
 		while (*buf) {
-			if  (VERBOSE) {
+			if  (DEBUG) {
 				mbedtls_printf("  . Loading the CA root certificate from file: %s ...",
 					       *buf);
 				fflush(stdout);
@@ -538,12 +538,12 @@ do_ctx_connect_tls (thttp_request_t *req,
 						*buf, -ret );
 				goto exit;
 			}
-			if (VERBOSE)
+			if (DEBUG)
 				mbedtls_printf(" ok\n");
 			buf++;
 		}
 	} else if (getenv(ENV_CACHAIN)) {
-		if (VERBOSE) {
+		if (DEBUG) {
 			mbedtls_printf("  . Loading the CA root certificate from file: %s ...",
 				       getenv(ENV_CACHAIN));
 			fflush(stdout);
@@ -556,10 +556,10 @@ do_ctx_connect_tls (thttp_request_t *req,
 					getenv(ENV_CACHAIN), -ret );
 			goto exit;
 		}
-		if (VERBOSE)
+		if (DEBUG)
 			mbedtls_printf(" ok\n");
 	} else {
-		if (VERBOSE) {
+		if (DEBUG) {
 			mbedtls_printf("  . Loading the CA root certificate ...");
 			fflush(stdout);
 		}
@@ -572,7 +572,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 			mbedtls_printf( " failed to parse internal test certs\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n", -ret );
 			goto exit;
 		}
-		if (VERBOSE)
+		if (DEBUG)
 			mbedtls_printf( " ok (%d skipped)\n", ret );
 	}
 
@@ -580,40 +580,20 @@ do_ctx_connect_tls (thttp_request_t *req,
 	/*
 	 * 1. Start the connection
 	 */
-	if (VERBOSE) {
+	if (DEBUG) {
 		mbedtls_printf( "  . Connecting to tcp/%s/%d...", req->host, req->port );
 		fflush( stdout );
 	}
 
-	static int errshown = 0;
-	char *host;
-	if (req->host_proxy && strlen(req->host_proxy) > 0) {
-		snprintf(portc, sizeof(portc), "%d", req->port_proxy);
-		host = req->host_proxy;
-	} else {
-		snprintf(portc, sizeof(portc), "%d", req->port);
-		host = req->host;
-	}
-	if( ( fd = _sock_connect(host, portc, &req->conn ) ) == -1 )
-	{
-		if (!errshown) {
-			mbedtls_printf("failed to connect to %s:%d!\n", req->host, req->port );
-			errshown = 1;
-		}
-		ret = fd;
-		goto exit;
-	}
-	if (errshown) mbedtls_printf("successfully connected to %s:%d\n", req->host, req->port);
-
-	errshown = 0;
 
 	ctx->server_fd.fd = fd;
+
 	mbedtls_net_set_nonblock(&ctx->server_fd);
 
-	if (VERBOSE)
+	if (DEBUG)
 		mbedtls_printf( " ok\n" );
 
-	if (VERBOSE) {
+	if (DEBUG) {
 		mbedtls_printf( "  . Setting up the SSL/TLS structure..." );
 		fflush( stdout );
 	}
@@ -627,7 +607,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 		goto exit;
 	}
 
-	if (VERBOSE)
+	if (DEBUG)
 		mbedtls_printf( " ok\n" );
 
 	/* XXX: FIXME
@@ -660,7 +640,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 	/*
 	 * 4. Handshake
 	 */
-	if (VERBOSE) {
+	if (DEBUG) {
 		mbedtls_printf( "  . Performing the SSL/TLS handshake..." );
 		fflush( stdout );
 	}
@@ -670,14 +650,14 @@ do_ctx_connect_tls (thttp_request_t *req,
 		/*
 		 * TODO: Make 2000 (ms timeout) to a define.
 		 * */
-		
+
 		if ( start + MAX_SECS_FOR_HANDSHAKE < time(NULL))
 			break;
 
-		ret = mbedtls_net_poll(&ctx->server_fd, 
+		ret = mbedtls_net_poll(&ctx->server_fd,
 				MBEDTLS_NET_POLL_WRITE | MBEDTLS_NET_POLL_READ, 2000);
 		if ( !ret) {
-			if (VERBOSE)
+			if (DEBUG)
 				mbedtls_printf("Nothing to read from ssl socket yet\n");
 			continue;
 		}
@@ -694,13 +674,13 @@ do_ctx_connect_tls (thttp_request_t *req,
 		goto exit;
 	}
 
-	if (VERBOSE)
+	if (DEBUG)
 		mbedtls_printf( " ok\n" );
 
 	/*
 	 * 5. Verify the server certificate
 	 */
-	if (VERBOSE)
+	if (DEBUG)
 		mbedtls_printf( "  . Verifying peer X.509 certificate..." );
 
 	/* In real life, we probably want to bail out when ret != 0 */
@@ -710,7 +690,7 @@ do_ctx_connect_tls (thttp_request_t *req,
 		mbedtls_x509_crt_verify_info(vrfy_buf, sizeof( vrfy_buf ), "  ! ", flags);
 		mbedtls_printf("%s\n", vrfy_buf);
 	} else {
-		if (VERBOSE)
+		if (DEBUG)
 			mbedtls_printf( " ok\n" );
 	}
 	return ret;
@@ -719,17 +699,6 @@ exit:
 	return ret;
 }
 
-static int
-do_ctx_connect (thttp_request_t* req,
-		struct _req_ctx_plain *ctx_plain,
-		struct _req_ctx_tls *ctx_tls)
-{
-	if (req->is_tls) {
-		return do_ctx_connect_tls(req, ctx_tls);
-	}
-
-	return thttp_request_connect_plain (req, ctx_plain);
-}
 
 static int
 do_ctx_plain_write(thttp_request_t* req,
@@ -856,8 +825,10 @@ do_ctx_tls_read(thttp_request_t* req,
 				break;
 		}
 	}
-	if (DEBUG)
+	if (DEBUG && VERBOSE)
 		mbedtls_printf("%d bytes read\n\n%s", to_read, (char *) buf - (to_read - len));
+	else if (DEBUG)
+		mbedtls_printf("%d bytes read\n\n", to_read);
 
 	return to_read - len;
 }
@@ -910,6 +881,79 @@ do_ctx_close(thttp_request_t* req,
 }
 
 static int
+do_ctx_connect (thttp_request_t* req,
+		struct _req_ctx_plain *ctx_plain,
+		struct _req_ctx_tls *ctx_tls)
+{
+
+	int fd = -1, ret;
+	char resbuf[1024];
+	char *httpconnect = 0;
+
+	int upstreamtls = req->baseurl ? !strncmp (req->baseurl, "https:", 6) : strlen(req->path) >= 6 && !strncmp (req->path, "https:", 6);
+
+	if (req->host_proxy && req->proxyconnect && upstreamtls) {
+		char *p;
+		httpconnect = malloc(sizeof(char) * (strlen("CONNECT %s HTTP/1.1\n\n") + strlen(req->host) + 7));
+		sprintf(httpconnect, "CONNECT %s:%d HTTP/1.1\n\n", req->host, req->port);
+
+		ret = thttp_request_connect_plain (req, ctx_plain);
+
+		if (ret <= 0) {
+			free (httpconnect);
+			return ret;
+		}
+
+		ret = do_ctx_plain_write(req,
+					 ctx_plain,
+					 httpconnect,
+					 strlen(httpconnect));
+		free(httpconnect);
+
+		if (ret <= 0) {
+			return ret;
+		}
+
+		ret = do_ctx_plain_read(req,
+					ctx_plain,
+					resbuf,
+					1024);
+		if (ret <= 0) {
+			return ret;
+		}
+
+		if (strncmp(resbuf, "HTTP/",5)) {
+			mbedtls_printf("error connecting through proxy tunnel '%s'\n",resbuf);
+			goto exit;
+		}
+
+		p = strchr(resbuf, ' ');
+
+		if (strncmp(p+1, "200", 3)) {
+			mbedtls_printf("proxy tunnel did not return 200 error code '%s'\n",resbuf);
+			goto exit;
+		}
+
+		req->is_tls = 1;
+		ret = do_ctx_connect_tls(ctx_plain->server_fd, req, ctx_tls);
+
+		return ret;
+	} else if (req->is_tls) {
+		ret = thttp_request_connect_plain (req, ctx_plain);
+		if (!ret)
+			return ret;
+		return do_ctx_connect_tls(ctx_plain->server_fd, req, ctx_tls);
+	}
+
+	return thttp_request_connect_plain (req, ctx_plain);
+
+ exit:
+	close (fd);
+	return -1;
+}
+
+
+static int
 thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *parser)
 {
 	int ret, len, bytes;
@@ -955,19 +999,18 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	}
 
 	if (req->fd) {
-	while (req->fd && ((bytes = read(req->fd, filebuf, 4096)) > 0)) {
-		while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, filebuf, bytes)) <= 0) {
-			if (ret != 0) {
-				mbedtls_printf ("failed\n  ! write returned %d\n\n", ret);
-				goto exit_write;
+		while (req->fd && ((bytes = read(req->fd, filebuf, 4096)) > 0)) {
+			while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, filebuf, bytes)) <= 0) {
+				if (ret != 0) {
+					mbedtls_printf ("failed\n  ! write returned %d\n\n", ret);
+					goto exit_write;
+				}
 			}
 		}
-	}
 	}
 
 	struct http_roundtripper rt;
 	http_init(&rt, _http_response_funcs, parser);
-
 	memset(resbuf, 0, sizeof(resbuf));
 
 	while (needmore) {
@@ -1016,10 +1059,12 @@ thttp_request_do (thttp_request_t *req)
 	int rv;
 	struct http_response_parser parser;
 	memset (&parser, 0, sizeof (parser));
+
 	rv = thttp_request_do_abstract (req, &parser);
+
 	if (DEBUG)
 		mbedtls_printf("thttp parser return: ret = %d, parser.out=%s\n",
-			       	rv, (parser.out? "nil":parser.out->body));
+				rv, (parser.out? "nil":parser.out->body));
 	return parser.out;
 }
 
