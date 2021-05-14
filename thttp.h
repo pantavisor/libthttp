@@ -41,6 +41,7 @@ typedef struct thttp_request {
 	thttp_proto_version_t proto_version;
 
 	int is_tls;
+	int proxyconnect;
 
 	char *host;
 	int port;
@@ -84,8 +85,8 @@ typedef struct thttp_request_tls {
 
 	// null terminated list of ciphersuites from mbedtls defines. if NULL
 	// the reasonable defaults of mbedtls implementation will be picked.
-        // -- this guy is untyped to avoid dependencies to clients on mbedtls headers
-        // and 
+	// -- this guy is untyped to avoid dependencies to clients on mbedtls headers
+	// and
 	void *ciphersuites;
 } thttp_request_tls_t;
 
