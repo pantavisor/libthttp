@@ -49,3 +49,11 @@ LOCAL_LIBRARIES := mbedtls libthttp
 LOCAL_LDFLAGS := --static
 LOCAL_SRC_FILES := $(LOCAL_MODULE).c
 include $(BUILD_EXECUTABLE)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := trest-example1-tls
+LOCAL_DESCRIPTION := trest example 1 tls
+LOCAL_LIBRARIES := mbedtls libthttp
+LOCAL_LDFLAGS := --static
+LOCAL_SRC_FILES := $(LOCAL_MODULE).c
+include $(BUILD_EXECUTABLE)
