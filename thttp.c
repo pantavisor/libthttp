@@ -908,6 +908,7 @@ do_ctx_connect (thttp_request_t* req,
 					 ctx_plain,
 					 httpconnect,
 					 strlen(httpconnect));
+		free(httpconnect);
 
 		if (ret <= 0) {
 			return ret;
