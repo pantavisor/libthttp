@@ -401,7 +401,7 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 	 * */
 
 	fd = socket(sock->sa_family, SOCK_STREAM, IPPROTO_IP);
-	if (fd > 0) {
+	if (fd >= 0) {
 		if (is_remote_reachable(fd, sock, sizeof(*sock)))
 			goto ret;
 
@@ -432,7 +432,7 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 		rp = rp->ai_next;
 	}
 out:
-	if (fd > 0) {
+	if (fd >= 0) {
 		int flags = 1;
 		setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &flags, sizeof(flags));
 		flags = 300;
@@ -454,16 +454,20 @@ thttp_request_connect_plain (thttp_request_t* req,
 	char portc[16];
 	// if proxy we connect to proxy
 	if (req->host_proxy && strlen(req->host_proxy) > 0) {
+		if (DEBUG)
+			mbedtls_printf("connecting through proxy: %s/%d\n", req->host_proxy, req->port_proxy);
 		snprintf(portc, sizeof(portc), "%d", req->port_proxy);
 		ctx->server_fd = _sock_connect(req->host_proxy, portc, &req->conn);
 	} else {
+		if (DEBUG)
+			mbedtls_printf("connecting directly to host/port: %s/%d\n", req->host, req->port);
 		snprintf(portc, sizeof(portc), "%d", req->port);
 		ctx->server_fd = _sock_connect(req->host, portc, &req->conn);
 	}
 	if (DEBUG)
-		mbedtls_printf (" OK\n");
+		mbedtls_printf (" OK serverfd %d\n", ctx->server_fd);
 
-	return ctx->server_fd > 0 ? 1 : 0;
+	return ctx->server_fd >= 0 ? 0 : -1;
 
 }
 
@@ -893,7 +897,7 @@ do_ctx_connect (thttp_request_t* req,
 		struct _req_ctx_tls *ctx_tls)
 {
 
-	int fd = -1, ret;
+	int ret;
 	char resbuf[1024];
 	char *httpconnect = 0;
 
@@ -906,7 +910,7 @@ do_ctx_connect (thttp_request_t* req,
 
 		ret = thttp_request_connect_plain (req, ctx_plain);
 
-		if (ret <= 0) {
+		if (ret < 0) {
 			free (httpconnect);
 			return ret;
 		}
@@ -917,16 +921,16 @@ do_ctx_connect (thttp_request_t* req,
 					 strlen(httpconnect));
 		free(httpconnect);
 
-		if (ret <= 0) {
-			return ret;
+		if (ret < 0) {
+			goto exit;
 		}
 
 		ret = do_ctx_plain_read(req,
 					ctx_plain,
 					resbuf,
 					1024);
-		if (ret <= 0) {
-			return ret;
+		if (ret < 0) {
+			goto exit;
 		}
 
 		if (strncmp(resbuf, "HTTP/",5)) {
@@ -947,15 +951,15 @@ do_ctx_connect (thttp_request_t* req,
 		return ret;
 	} else if (req->is_tls) {
 		ret = thttp_request_connect_plain (req, ctx_plain);
-		if (!ret)
-			return ret;
-		return do_ctx_connect_tls(ctx_plain->server_fd, req, ctx_tls);
+		if (ret < 0)
+			goto exit;
+		ret = do_ctx_connect_tls(ctx_plain->server_fd, req, ctx_tls);
+		return ret;
 	}
 
 	return thttp_request_connect_plain (req, ctx_plain);
 
  exit:
-	close (fd);
 	return -1;
 }
 
@@ -963,7 +967,7 @@ do_ctx_connect (thttp_request_t* req,
 static int
 thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *parser)
 {
-	int ret, len, bytes;
+	int ret = -1, len, bytes;
 	struct _req_ctx_plain ctx_plain;
 	struct _req_ctx_tls ctx_tls;
 	char *reqbuf = 0;
@@ -976,7 +980,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 
 	parser->out = calloc(1, sizeof(thttp_response_t));
 	if (!parser->out)
-		return -1;
+		goto exit_connect;
 
 	if (DEBUG) {
 		mbedtls_printf("Connecting to tcp/%s/%4d...", req->host,
@@ -999,7 +1003,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 		mbedtls_printf ("%s\n", reqbuf);
 
 	while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, reqbuf, len)) <= 0) {
-		if (ret != 0) {
+		if (ret < 0) {
 			mbedtls_printf ("failed\n  ! write returned %d\n\n", ret);
 			goto exit_write;
 		}
@@ -1008,7 +1012,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	if (req->fd) {
 		while (req->fd && ((bytes = read(req->fd, filebuf, 4096)) > 0)) {
 			while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, filebuf, bytes)) <= 0) {
-				if (ret != 0) {
+				if (ret < 0) {
 					mbedtls_printf ("failed\n  ! write returned %d\n\n", ret);
 					goto exit_write;
 				}
@@ -1057,7 +1061,7 @@ exit_write:
 exit_connect:
 	do_ctx_close(req, &ctx_plain, &ctx_tls);
 
-	return 0;
+	return ret < 0 ? ret : 0;
 }
 
 thttp_response_t*
