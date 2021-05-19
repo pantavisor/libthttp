@@ -646,6 +646,8 @@ do_ctx_connect_tls (int fd,
 	}
 	start = time(NULL);
 
+	/* start writing */
+	ret = MBEDTLS_ERR_SSL_WANT_WRITE;
 	do {
 		/*
 		 * TODO: Make 2000 (ms timeout) to a define.
@@ -654,8 +656,13 @@ do_ctx_connect_tls (int fd,
 		if ( start + MAX_SECS_FOR_HANDSHAKE < time(NULL))
 			break;
 
-		ret = mbedtls_net_poll(&ctx->server_fd,
-				MBEDTLS_NET_POLL_WRITE | MBEDTLS_NET_POLL_READ, 2000);
+		if (ret == MBEDTLS_ERR_SSL_WANT_WRITE)
+			ret = mbedtls_net_poll(&ctx->server_fd,
+					MBEDTLS_NET_POLL_WRITE, 500);
+		else if (ret == MBEDTLS_ERR_SSL_WANT_READ)
+			ret = mbedtls_net_poll(&ctx->server_fd,
+					MBEDTLS_NET_POLL_READ, 500);
+
 		if ( !ret) {
 			if (DEBUG)
 				mbedtls_printf("Nothing to read from ssl socket yet\n");
