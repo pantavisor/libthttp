@@ -34,7 +34,7 @@
 #define mbedtls_time       time
 #define mbedtls_time_t     time_t
 #define mbedtls_fprintf    fprintf
-#define mbedtls_printf     my_printf
+#define mbedtls_printf    printf
 #endif
 
 #include "mbedtls/net.h"
@@ -54,7 +54,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <string.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -68,7 +67,7 @@
 #define BUF_BLOCKSIZE 8192
 #define ENV_CACHAIN "THTTP_CAFILE" // XXX: this has to go away; example should put the file in request
 
-int (*my_printf)(const char *fmt, ...) = printf;
+static int (*external_printf)(const char *fmt, ...) = printf;
 
 struct http_response_parser {
 	thttp_response_t *out;
@@ -90,7 +89,7 @@ struct http_response_parser {
 void thttp_set_log_func(int (*func)(const char *fmt, ...))
 {
 	if (func)
-		my_printf = func;
+		external_printf = func;
 }
 
 static char*
@@ -217,6 +216,7 @@ _response_body(void* opaque, const char* data, int size)
 		int r;
 		r = write (parser->fd, data, size);
 		if (r < size) {
+			external_printf("write: %s", strerror(errno));
 			parser->file_error = 1;
 			parser->file_error = errno;
 		}
@@ -356,6 +356,7 @@ static int is_remote_reachable(int sockfd, struct sockaddr *rp, socklen_t len)
 	ret = connect(sockfd, rp, len);
 
 	if (!ret) {
+		external_printf("connect: %s", strerror(errno));
 		ret = 1;
 		goto out;
 	}
@@ -371,13 +372,17 @@ static int is_remote_reachable(int sockfd, struct sockaddr *rp, socklen_t len)
 	FD_ZERO(&fdset);
 	FD_SET(sockfd, &fdset);
 
-	if (select(sockfd + 1, 0, &fdset, 0, &tv) <= 0) {
-		ret = 0;
+	ret = select(sockfd + 1, 0, &fdset, 0, &tv);
+	if (ret < 0) {
+		external_printf("select: %s", ret, strerror(errno));
+		goto out;
+	} else if (ret == 0) {
 		goto out;
 	}
 
 	len = sizeof(ret);
-	getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &ret, &len);
+	if(getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &ret, &len))
+		external_printf("getsockopt: %s", strerror(errno));
 	ret = !ret ? 1 : 0;
 out:
 	fcntl(sockfd, F_SETFL, orig_flags);
@@ -389,7 +394,7 @@ out:
 static int
 _sock_connect (char *host, char *port, struct sockaddr *sock)
 {
-	int fd = -1;
+	int fd = -1, ret = 0;
 	struct addrinfo hints, *result = 0, *rp;
 
 	// ignore SIGPIPE signal to disable the default behavior (end the process).
@@ -407,20 +412,26 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 
 		close(fd);
 		fd = -1;
-	}
+	} else
+		external_printf("socket: %s", strerror(errno));
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family |= AF_UNSPEC;
 
-	if (getaddrinfo(host, port, &hints, &result))
+	ret = getaddrinfo(host, port, &hints, &result);
+	if (ret) {
+		external_printf("getaddrinfo: returned %d", ret);
 		return -1;
+	}
 
 	rp = result;
 	while (rp) {
 		fd = socket(rp->ai_family, SOCK_STREAM, IPPROTO_IP);
 
-		if (fd < 0)
+		if (fd < 0) {
+			external_printf("socket: %s", strerror(errno));
 			goto out;
+		}
 
 		if (is_remote_reachable(fd, rp->ai_addr, rp->ai_addrlen)) {
 			*sock = *rp->ai_addr;
@@ -434,9 +445,11 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 out:
 	if (fd >= 0) {
 		int flags = 1;
-		setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &flags, sizeof(flags));
+		if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &flags, sizeof(flags)))
+			external_printf("setsockopt: %s", strerror(errno));
 		flags = 300;
-		setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &flags, sizeof(flags));
+		if (setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &flags, sizeof(flags)))
+			external_printf("setsockopt: %s", strerror(errno));
 	}
 
 	if (result)
@@ -717,7 +730,10 @@ do_ctx_plain_write(thttp_request_t* req,
 		   char *buf,
 		   int len)
 {
-	return write (ctx_plain->server_fd, buf, len);
+	int ret = write (ctx_plain->server_fd, buf, len);
+	if (ret < 0)
+		external_printf("write: %s", strerror(errno));
+	return ret;
 }
 
 static int
@@ -789,7 +805,10 @@ do_ctx_plain_read(thttp_request_t* req,
 		  char *buf,
 		  int len)
 {
-	return read(ctx_plain->server_fd, buf, len);
+	int ret = read(ctx_plain->server_fd, buf, len);
+	if (ret < 0)
+		external_printf("read: %s", strerror(errno));
+	return ret;
 }
 static int
 do_ctx_tls_read(thttp_request_t* req,
@@ -1011,6 +1030,8 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 
 	if (req->fd) {
 		while (req->fd && ((bytes = read(req->fd, filebuf, 4096)) > 0)) {
+			if (bytes < 0)
+				external_printf("read: %s", strerror(errno));
 			while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, filebuf, bytes)) <= 0) {
 				if (ret < 0) {
 					mbedtls_printf ("failed\n  ! write returned %d\n\n", ret);
