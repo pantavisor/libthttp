@@ -374,7 +374,7 @@ static int is_remote_reachable(int sockfd, struct sockaddr *rp, socklen_t len)
 
 	ret = select(sockfd + 1, 0, &fdset, 0, &tv);
 	if (ret < 0) {
-		external_printf("select: %s", ret, strerror(errno));
+		external_printf("select: %s", strerror(errno));
 		goto out;
 	} else if (ret == 0) {
 		goto out;
