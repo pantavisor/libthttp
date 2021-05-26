@@ -420,7 +420,7 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 
 	ret = getaddrinfo(host, port, &hints, &result);
 	if (ret) {
-		external_printf("getaddrinfo: returned %d", ret);
+		external_printf("getaddrinfo: %s (%s)", strerror(errno), gai_strerror(ret));
 		return -1;
 	}
 
