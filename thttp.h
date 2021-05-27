@@ -25,6 +25,7 @@
 
 #include "thttp-enums.h"
 #include <netinet/in.h>
+#include <stdarg.h>
 
 #ifndef DEBUG
 #define DEBUG 0
@@ -101,7 +102,7 @@ typedef struct thttp_response {
 } thttp_response_t;
 
 
-void thttp_set_log_func(int (*func)(const char *fmt, ...));
+void thttp_set_log_func(void (*func)(int level, const char *fmt, va_list args));
 
 // full sync variant for http requests
 thttp_response_t* thttp_request_do (thttp_request_t* req);
