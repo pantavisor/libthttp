@@ -67,7 +67,16 @@
 #define BUF_BLOCKSIZE 8192
 #define ENV_CACHAIN "THTTP_CAFILE" // XXX: this has to go away; example should put the file in request
 
-static int (*external_printf)(const char *fmt, ...) = printf;
+enum log_level {
+    LOG_FATAL,  // 0
+    LOG_ERROR,  // 1
+    LOG_WARN,   // 2
+    LOG_INFO,   // 3
+    LOG_DEBUG,  // 4
+    LOG_ALL // 5
+};
+
+static void (*external_printf)(int level, const char *fmt, va_list args) = NULL;
 
 struct http_response_parser {
 	thttp_response_t *out;
@@ -86,7 +95,20 @@ struct http_response_parser {
 	void *dl_progress_cb_priv;
 };
 
-void thttp_set_log_func(int (*func)(const char *fmt, ...))
+static void log_libthttp(int level, const char *fmt, ...)
+{
+	if (!external_printf)
+		return;
+
+	va_list args;
+	va_start(args, fmt);
+
+	external_printf(level, fmt, args);
+
+	va_end(args);
+}
+
+void thttp_set_log_func(void (*func)(int level, const char *fmt, va_list args))
 {
 	if (func)
 		external_printf = func;
@@ -216,7 +238,7 @@ _response_body(void* opaque, const char* data, int size)
 		int r;
 		r = write (parser->fd, data, size);
 		if (r < size) {
-			external_printf("write: %s", strerror(errno));
+			log_libthttp(LOG_WARN, "write: %s", strerror(errno));
 			parser->file_error = 1;
 			parser->file_error = errno;
 		}
@@ -356,7 +378,7 @@ static int is_remote_reachable(int sockfd, struct sockaddr *rp, socklen_t len)
 	ret = connect(sockfd, rp, len);
 
 	if (!ret) {
-		external_printf("connect: %s", strerror(errno));
+		log_libthttp(LOG_WARN, "connect: %s", strerror(errno));
 		ret = 1;
 		goto out;
 	}
@@ -374,7 +396,7 @@ static int is_remote_reachable(int sockfd, struct sockaddr *rp, socklen_t len)
 
 	ret = select(sockfd + 1, 0, &fdset, 0, &tv);
 	if (ret < 0) {
-		external_printf("select: %s", strerror(errno));
+		log_libthttp(LOG_WARN, "select: %s", strerror(errno));
 		goto out;
 	} else if (ret == 0) {
 		goto out;
@@ -382,7 +404,7 @@ static int is_remote_reachable(int sockfd, struct sockaddr *rp, socklen_t len)
 
 	len = sizeof(ret);
 	if(getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &ret, &len))
-		external_printf("getsockopt: %s", strerror(errno));
+		log_libthttp(LOG_WARN, "getsockopt: %s", strerror(errno));
 	ret = !ret ? 1 : 0;
 out:
 	fcntl(sockfd, F_SETFL, orig_flags);
@@ -413,14 +435,14 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 		close(fd);
 		fd = -1;
 	} else
-		external_printf("socket: %s", strerror(errno));
+		log_libthttp(LOG_WARN, "socket: %s", strerror(errno));
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family |= AF_UNSPEC;
 
 	ret = getaddrinfo(host, port, &hints, &result);
 	if (ret) {
-		external_printf("getaddrinfo: %s (%s)", strerror(errno), gai_strerror(ret));
+		log_libthttp(LOG_WARN, "getaddrinfo: %s (%s)", strerror(errno), gai_strerror(ret));
 		return -1;
 	}
 
@@ -429,7 +451,7 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 		fd = socket(rp->ai_family, SOCK_STREAM, IPPROTO_IP);
 
 		if (fd < 0) {
-			external_printf("socket: %s", strerror(errno));
+			log_libthttp(LOG_WARN, "socket: %s", strerror(errno));
 			goto out;
 		}
 
@@ -446,10 +468,10 @@ out:
 	if (fd >= 0) {
 		int flags = 1;
 		if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &flags, sizeof(flags)))
-			external_printf("setsockopt: %s", strerror(errno));
+			log_libthttp(LOG_WARN, "setsockopt: %s", strerror(errno));
 		flags = 300;
 		if (setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &flags, sizeof(flags)))
-			external_printf("setsockopt: %s", strerror(errno));
+			log_libthttp(LOG_WARN, "setsockopt: %s", strerror(errno));
 	}
 
 	if (result)
@@ -732,7 +754,7 @@ do_ctx_plain_write(thttp_request_t* req,
 {
 	int ret = write (ctx_plain->server_fd, buf, len);
 	if (ret < 0)
-		external_printf("write: %s", strerror(errno));
+		log_libthttp(LOG_WARN, "write: %s", strerror(errno));
 	return ret;
 }
 
@@ -807,7 +829,7 @@ do_ctx_plain_read(thttp_request_t* req,
 {
 	int ret = read(ctx_plain->server_fd, buf, len);
 	if (ret < 0)
-		external_printf("read: %s", strerror(errno));
+		log_libthttp(LOG_WARN, "read: %s", strerror(errno));
 	return ret;
 }
 static int
@@ -1021,6 +1043,8 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	if (DEBUG)
 		mbedtls_printf ("%s\n", reqbuf);
 
+	log_libthttp(LOG_DEBUG, "%s\n", reqbuf);
+
 	while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, reqbuf, len)) <= 0) {
 		if (ret < 0) {
 			mbedtls_printf ("failed\n  ! write returned %d\n\n", ret);
@@ -1031,7 +1055,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	if (req->fd) {
 		while (req->fd && ((bytes = read(req->fd, filebuf, 4096)) > 0)) {
 			if (bytes < 0)
-				external_printf("read: %s", strerror(errno));
+				log_libthttp(LOG_WARN, "read: %s", strerror(errno));
 			while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, filebuf, bytes)) <= 0) {
 				if (ret < 0) {
 					mbedtls_printf ("failed\n  ! write returned %d\n\n", ret);
