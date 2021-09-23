@@ -24,13 +24,8 @@ LOCAL_INSTALL_HEADERS := thttp.h \
 						trest.h \
 						trail.h
 
-LOCAL_COPY_FILES := \
-					certs/AppSpotGoogleCloudChain-long.pem:certs/ \
-					certs/BaltimoreCyberTrustRoot.crt:certs/ \
-					certs/DigiCertBaltimoreCA-2G2.crt:certs/ \
-					certs/DSTRootCAX3.crt:certs/ \
-					certs/"Let'sEncryptAuthorityX3.crt":certs/ \
-					certs/localhost.chain.pem:certs/
+LOCAL_COPY_FILES := certs/isrg-root-x1-cross-signed.pem:certs/ \
+					certs/isrgrootx1.pem:certs/
 
 include $(BUILD_STATIC_LIBRARY)
 
