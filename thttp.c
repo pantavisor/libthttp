@@ -427,15 +427,17 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 	 * If conn, try resolved PH IP first.
 	 * */
 
-	fd = socket(sock->sa_family, SOCK_STREAM, IPPROTO_IP);
-	if (fd >= 0) {
-		if (is_remote_reachable(fd, sock, sizeof(*sock)))
-			goto ret;
+	if (sock->sa_family) {
+		fd = socket(sock->sa_family, SOCK_STREAM, IPPROTO_IP);
+		if (fd >= 0) {
+			if (is_remote_reachable(fd, sock, sizeof(*sock)))
+				goto ret;
 
-		close(fd);
-		fd = -1;
-	} else
-		log_libthttp(LOG_WARN, "socket: %s", strerror(errno));
+			close(fd);
+			fd = -1;
+		} else
+			log_libthttp(LOG_WARN, "socket: %s", strerror(errno));
+	}
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family |= AF_UNSPEC;
