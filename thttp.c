@@ -396,7 +396,10 @@ static int is_remote_reachable(int sockfd, struct sockaddr *rp, socklen_t len)
 
 	ret = select(sockfd + 1, 0, &fdset, 0, &tv);
 	if (ret < 0) {
-		log_libthttp(LOG_WARN, "select: %s", strerror(errno));
+		if (errno != EINTR)
+			log_libthttp(LOG_WARN, "select: %s", strerror(errno));
+		// if we get an EINTR here, that means we probably
+		// got a hangup -> in all cases: not reachable...
 		goto out;
 	} else if (ret == 0) {
 		goto out;
