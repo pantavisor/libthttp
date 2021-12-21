@@ -153,7 +153,6 @@ static int setup_request(thttp_request_t *req) {
 	req->baseurl = make_message("%s://%s:%d",
 				    thttp_apiproto ? thttp_apiproto : "https",
 				    req->host, req->port);
-	req->headers = 0;
 
 	return 0;
 }
@@ -163,7 +162,7 @@ int main (int argc, char **argv) {
 	thttp_request_t* req = (thttp_request_t*) thttp_request_tls_new_0 ();
 	thttp_response_t* res = 0;
 	int r;
-	char *token, *geturl;
+	char *token, *geturl, **headers;
 	int tokcount;
 	jsmntok_t *tok;
 	jsmn_parser parser;
@@ -209,8 +208,11 @@ int main (int argc, char **argv) {
 	req->baseurl = make_message("%s://%s:%d",
 				    thttp_apiproto ? thttp_apiproto : "https",
 				    req->host, req->port);
-	req->headers = calloc(sizeof(char*), 2);
-	req->headers[0] = make_message("Authorization: Bearer %s", token);
+	headers = calloc(sizeof(char*), 2);
+	headers[0] = make_message("Authorization: Bearer %s", token);
+	thttp_add_headers(req, headers, 1);
+	free(headers[0]);
+	free(headers);
 	req->body = "";
 	req->body_content_type = "";
 	res = thttp_request_do (req);
@@ -228,7 +230,6 @@ int main (int argc, char **argv) {
 	setup_request (req);
 	req->path = geturl;
 	req->baseurl = NULL;
-	req->headers = 0;
 	req->body = "";
 	req->body_content_type = "";
 	int fd;

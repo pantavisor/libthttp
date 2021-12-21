@@ -245,10 +245,8 @@ main (int argc, char **argv)
 
 
 	printf("==== make json_request for /auth/login ... \n");
-	req = trest_make_request (TREST_METHOD_POST,
+	req = trest_make_request (THTTP_METHOD_POST,
 				  "/auth/login",
-				  0, // queries
-				  0, // headers
 				  make_message("{ username: \"%s\", password: \"%s\"}",
 					       trest_user ? trest_user : DEFAULT_USER,
 					       trest_pass ? trest_pass : DEFAULT_USERPASS));
@@ -304,10 +302,8 @@ main (int argc, char **argv)
 
 
 	printf("==== do_json_request: userclient to create device ... \n ");
-	req1 = trest_make_request (TREST_METHOD_POST,
+	req1 = trest_make_request (THTTP_METHOD_POST,
 				   "/devices/",
-				   0, // queries
-				   0, // headers
 				   "{ }");
 
 	res1 = trest_do_json_request(userclient,
@@ -354,10 +350,8 @@ main (int argc, char **argv)
 
 	printf("==== do post initial trail (device: %s) ...\n", device_nick);
 
-	req2 = trest_make_request (TREST_METHOD_POST,
+	req2 = trest_make_request (THTTP_METHOD_POST,
 				   "/trails/",
-				   0, // queries
-				   0, // headers
 				   "{ \"#spec\": \"pantavisor-service-system@1\" }");
 
 	res2 = trest_do_json_request(deviceclient,
@@ -377,10 +371,8 @@ main (int argc, char **argv)
 				  + strlen (device_id)) * sizeof(char));
 	sprintf(trail_steps_ep, DEVICE_TRAIL_ENDPOINT_FMT, device_id);
 
-	req3 = trest_make_request (TREST_METHOD_GET,
+	req3 = trest_make_request (THTTP_METHOD_GET,
 				   trail_steps_ep,
-				   0, // queries
-				   0, // headers
 				   NULL);
 
 	res3 = trest_do_json_request(deviceclient,
@@ -394,10 +386,8 @@ main (int argc, char **argv)
 
 
 	printf("==== post new step to trail as owner (device: %s) ...\n", device_nick);
-	req4 = trest_make_request (TREST_METHOD_POST,
+	req4 = trest_make_request (THTTP_METHOD_POST,
 				   trail_steps_ep,
-				   0, // queries
-				   0, // headers
 				   "{\n"
 				   "  \"rev\": 1,\n"
 				   "  \"commit-msg\": \"move to myvalue1\",\n"
@@ -415,10 +405,8 @@ main (int argc, char **argv)
 
 
 	printf("==== post new step to trail as owner (device: %s) ...\n", device_nick);
-	req4a = trest_make_request (TREST_METHOD_POST,
+	req4a = trest_make_request (THTTP_METHOD_POST,
 				    trail_steps_ep,
-				    0, // queries
-				    0, // headers
 				    "{\n"
 				    "  \"rev\": 2,\n"
 				    "  \"commit-msg\": \"move to myvalue2\",\n"
@@ -436,10 +424,8 @@ main (int argc, char **argv)
 
 
 	printf("==== get trail steps as owner (device: %s) ...\n", device_nick);
-	req5 = trest_make_request (TREST_METHOD_GET,
+	req5 = trest_make_request (THTTP_METHOD_GET,
 				   trail_steps_ep,
-				   0, // queries
-				   0, // headers
 				   0);
 
 	res5 = trest_do_json_request(userclient,
@@ -455,10 +441,8 @@ main (int argc, char **argv)
 	iterate_json_array (res5->body, res5->json_tokv, 0, (token_iter_f) print_step, NULL);
 
 	printf("==== get trail steps as device (device: %s) ...\n", device_nick);
-	req6 = trest_make_request (TREST_METHOD_GET,
+	req6 = trest_make_request (THTTP_METHOD_GET,
 				   trail_steps_ep,
-				   0, // queries
-				   0, // headers
 				   0);
 
 	res6 = trest_do_json_request(deviceclient,
