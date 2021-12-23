@@ -35,6 +35,14 @@
 #define VERBOSE 0
 #endif
 
+enum log_level {
+    LOG_FATAL,  // 0
+    LOG_ERROR,  // 1
+    LOG_WARN,   // 2
+    LOG_INFO,   // 3
+    LOG_DEBUG,  // 4
+    LOG_ALL // 5
+};
 
 typedef struct thttp_request {
 	thttp_method_t method;

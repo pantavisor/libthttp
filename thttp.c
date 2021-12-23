@@ -67,15 +67,6 @@
 #define BUF_BLOCKSIZE 8192
 #define ENV_CACHAIN "THTTP_CAFILE" // XXX: this has to go away; example should put the file in request
 
-enum log_level {
-    LOG_FATAL,  // 0
-    LOG_ERROR,  // 1
-    LOG_WARN,   // 2
-    LOG_INFO,   // 3
-    LOG_DEBUG,  // 4
-    LOG_ALL // 5
-};
-
 struct http_response_parser {
 	thttp_response_t *out;
 
