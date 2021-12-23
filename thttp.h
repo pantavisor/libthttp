@@ -54,7 +54,9 @@ typedef struct thttp_request {
 
 	char *baseurl;
 	char *path;
+
 	char **headers;
+	int nr_headers;
 
 	int fd;
 	int len;
@@ -103,6 +105,7 @@ typedef struct thttp_response {
 
 
 void thttp_set_log_func(void (*func)(int level, const char *fmt, va_list args));
+void thttp_log(int level, const char *fmt, ...);
 
 // full sync variant for http requests
 thttp_response_t* thttp_request_do (thttp_request_t* req);
@@ -120,6 +123,8 @@ thttp_request_tls_t* thttp_request_tls_new_0 ();
 
 void thttp_request_free (thttp_request_t* ptr);
 void thttp_response_free (thttp_response_t* ptr);
+
+void thttp_add_headers(struct thttp_request *req, char **headers, int nr_headers);
 
 thttp_status_t thttp_string_to_status (char *string);
 const char* thttp_status_to_string (thttp_status_t status);

@@ -33,17 +33,6 @@ typedef enum trest_auth_status {
 	TREST_AUTH_STATUS_UNKNOWN = 10000,
 } trest_auth_status_enum;
 
-
-typedef enum trest_method {
-	TREST_METHOD_GET = 1,
-	TREST_METHOD_POST,
-	TREST_METHOD_PUT,
-	TREST_METHOD_PATCH,
-	TREST_METHOD_DELETE,
-	TREST_METHOD_HEAD,
-	TREST_METHOD_UNKNOWN = 10000,
-} trest_method_enum;
-
 typedef void* trest_ptr;
 typedef void* trest_request_ptr;
 
@@ -73,7 +62,6 @@ typedef trest_response_t* trest_response_ptr;
 typedef void (*trest_cb) (void *user_data,
 			  unsigned char* data,
 			  size_t data_len);
-
 
 trest_ptr
 trest_new_from_userpass(const char* host, int port,
@@ -133,10 +121,8 @@ trest_update_auth (trest_ptr ptr);
 // make a json request; uses Encoding application/json
 // and Accept-Endcoding application/json accordingly
 trest_request_ptr
-trest_make_request (trest_method_enum method,
+trest_make_request (thttp_method_t method,
 		    char *endpoint_path,
-		    char **queries,
-		    char **headers,
 		    char *json_body);
 
 
@@ -156,6 +142,4 @@ trest_do_request (trest_ptr client,
 trest_response_ptr
 trest_do_json_request (trest_ptr client,
 		       trest_request_ptr);
-int trest_add_headers(trest_request_ptr ptr, char **header);
-int trest_add_queries(trest_request_ptr ptr, char **queries);
 #endif // TREST_H

@@ -76,8 +76,6 @@ enum log_level {
     LOG_ALL // 5
 };
 
-static void (*external_printf)(int level, const char *fmt, va_list args) = NULL;
-
 struct http_response_parser {
 	thttp_response_t *out;
 
@@ -95,7 +93,9 @@ struct http_response_parser {
 	void *dl_progress_cb_priv;
 };
 
-static void log_libthttp(int level, const char *fmt, ...)
+static void (*external_printf)(int level, const char *fmt, va_list args) = NULL;
+
+void thttp_log(int level, const char *fmt, ...)
 {
 	if (!external_printf)
 		return;
@@ -148,7 +148,6 @@ make_http_req (thttp_request_t *req, char **buf)
 {
 	size_t bufsize = BUF_BLOCKSIZE * sizeof(char);
 	size_t at = 0;
-	char **headers = req->headers;
 
 	// allocate at first and set first char to 0
 	*buf = malloc (bufsize);
@@ -166,7 +165,7 @@ make_http_req (thttp_request_t *req, char **buf)
 	*buf = buf_append (*buf, &at, " ", &bufsize);
 	*buf = buf_append (*buf, &at, thttp_proto_to_string (req->proto), &bufsize);
 	*buf = buf_append (*buf, &at, "/", &bufsize);
-	*buf = buf_append (*buf, &at, thttp_proto_version_to_string (req->proto), &bufsize);
+	*buf = buf_append (*buf, &at, thttp_proto_version_to_string (req->proto_version), &bufsize);
 	*buf = buf_append (*buf, &at, "\r\n", &bufsize);
 
 	// Host: hostname:port header line goes first (even for HTTP/1.0)
@@ -187,10 +186,9 @@ make_http_req (thttp_request_t *req, char **buf)
 	}
 
 	// append headers; one each line!
-	while (headers && *headers) {
-		*buf = buf_append (*buf, &at, *headers, &bufsize);
+	for (int i = 0; i < req->nr_headers; i++) {
+		*buf = buf_append (*buf, &at, req->headers[i], &bufsize);
 		*buf = buf_append (*buf, &at, "\r\n", &bufsize);
-		headers++;
 	}
 	// end of headers; add a CRLF
 	if (req->body) {
@@ -217,7 +215,6 @@ make_http_req (thttp_request_t *req, char **buf)
 	return at;
 }
 
-
 static void*
 _response_realloc(void* opaque, void* ptr, int size)
 {
@@ -238,7 +235,7 @@ _response_body(void* opaque, const char* data, int size)
 		int r;
 		r = write (parser->fd, data, size);
 		if (r < size) {
-			log_libthttp(LOG_WARN, "write: %s", strerror(errno));
+			thttp_log(LOG_WARN, "write: %s", strerror(errno));
 			parser->file_error = 1;
 			parser->file_error = errno;
 		}
@@ -311,7 +308,31 @@ thttp_request_free (thttp_request_t* ptr)
 {
 	if (ptr->baseurl)
 		free(ptr->baseurl);
+	for (int i = 0; i < ptr->nr_headers; i++) {
+		if (ptr->headers[i])
+			free(ptr->headers[i]);
+	}
+	if (ptr->headers)
+		free(ptr->headers);
 	free (ptr);
+}
+
+void thttp_add_headers(struct thttp_request *req, char **headers, int nr_headers)
+{
+	int new_nr_headers;
+	if (!nr_headers)
+		return;
+
+	new_nr_headers = req->nr_headers + nr_headers;
+	req->headers = realloc(req->headers, new_nr_headers * sizeof(char*));
+	for (int i = req->nr_headers; i < new_nr_headers; i++) {
+		req->headers[req->nr_headers] = strdup(headers[i]);
+		req->nr_headers++;
+	}
+
+	thttp_log(LOG_DEBUG, "added %d headers to request that now has %d headers in total",
+		nr_headers,
+		req->nr_headers);
 }
 
 void
@@ -378,7 +399,7 @@ static int is_remote_reachable(int sockfd, struct sockaddr *rp, socklen_t len)
 	ret = connect(sockfd, rp, len);
 
 	if (!ret) {
-		log_libthttp(LOG_WARN, "connect: %s", strerror(errno));
+		thttp_log(LOG_WARN, "connect: %s", strerror(errno));
 		ret = 1;
 		goto out;
 	}
@@ -397,7 +418,7 @@ static int is_remote_reachable(int sockfd, struct sockaddr *rp, socklen_t len)
 	ret = select(sockfd + 1, 0, &fdset, 0, &tv);
 	if (ret < 0) {
 		if (errno != EINTR)
-			log_libthttp(LOG_WARN, "select: %s", strerror(errno));
+			thttp_log(LOG_WARN, "select: %s", strerror(errno));
 		// if we get an EINTR here, that means we probably
 		// got a hangup -> in all cases: not reachable...
 		goto out;
@@ -407,7 +428,7 @@ static int is_remote_reachable(int sockfd, struct sockaddr *rp, socklen_t len)
 
 	len = sizeof(ret);
 	if(getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &ret, &len))
-		log_libthttp(LOG_WARN, "getsockopt: %s", strerror(errno));
+		thttp_log(LOG_WARN, "getsockopt: %s", strerror(errno));
 	ret = !ret ? 1 : 0;
 out:
 	fcntl(sockfd, F_SETFL, orig_flags);
@@ -439,7 +460,7 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 			close(fd);
 			fd = -1;
 		} else
-			log_libthttp(LOG_WARN, "socket: %s", strerror(errno));
+			thttp_log(LOG_WARN, "socket: %s", strerror(errno));
 	}
 
 	memset(&hints, 0, sizeof(hints));
@@ -447,7 +468,7 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 
 	ret = getaddrinfo(host, port, &hints, &result);
 	if (ret) {
-		log_libthttp(LOG_WARN, "getaddrinfo: %s (%s)", strerror(errno), gai_strerror(ret));
+		thttp_log(LOG_WARN, "getaddrinfo: %s (%s)", strerror(errno), gai_strerror(ret));
 		return -1;
 	}
 
@@ -456,7 +477,7 @@ _sock_connect (char *host, char *port, struct sockaddr *sock)
 		fd = socket(rp->ai_family, SOCK_STREAM, IPPROTO_IP);
 
 		if (fd < 0) {
-			log_libthttp(LOG_WARN, "socket: %s", strerror(errno));
+			thttp_log(LOG_WARN, "socket: %s", strerror(errno));
 			goto out;
 		}
 
@@ -473,10 +494,10 @@ out:
 	if (fd >= 0) {
 		int flags = 1;
 		if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &flags, sizeof(flags)))
-			log_libthttp(LOG_WARN, "setsockopt: %s", strerror(errno));
+			thttp_log(LOG_WARN, "setsockopt: %s", strerror(errno));
 		flags = 300;
 		if (setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &flags, sizeof(flags)))
-			log_libthttp(LOG_WARN, "setsockopt: %s", strerror(errno));
+			thttp_log(LOG_WARN, "setsockopt: %s", strerror(errno));
 	}
 
 	if (result)
@@ -759,7 +780,7 @@ do_ctx_plain_write(thttp_request_t* req,
 {
 	int ret = write (ctx_plain->server_fd, buf, len);
 	if (ret < 0)
-		log_libthttp(LOG_WARN, "write: %s", strerror(errno));
+		thttp_log(LOG_WARN, "write: %s", strerror(errno));
 	return ret;
 }
 
@@ -834,7 +855,7 @@ do_ctx_plain_read(thttp_request_t* req,
 {
 	int ret = read(ctx_plain->server_fd, buf, len);
 	if (ret < 0)
-		log_libthttp(LOG_WARN, "read: %s", strerror(errno));
+		thttp_log(LOG_WARN, "read: %s", strerror(errno));
 	return ret;
 }
 static int
@@ -1048,7 +1069,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	if (DEBUG)
 		mbedtls_printf ("%s\n", reqbuf);
 
-	log_libthttp(LOG_DEBUG, "%s\n", reqbuf);
+	thttp_log(LOG_DEBUG, "%s\n", reqbuf);
 
 	while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, reqbuf, len)) <= 0) {
 		if (ret < 0) {
@@ -1060,7 +1081,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	if (req->fd) {
 		while (req->fd && ((bytes = read(req->fd, filebuf, 4096)) > 0)) {
 			if (bytes < 0)
-				log_libthttp(LOG_WARN, "read: %s", strerror(errno));
+				thttp_log(LOG_WARN, "read: %s", strerror(errno));
 			while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, filebuf, bytes)) <= 0) {
 				if (ret < 0) {
 					mbedtls_printf ("failed\n  ! write returned %d\n\n", ret);
