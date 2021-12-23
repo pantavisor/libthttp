@@ -35,14 +35,14 @@
 #define VERBOSE 0
 #endif
 
-enum log_level {
+typedef enum {
     LOG_FATAL,  // 0
     LOG_ERROR,  // 1
     LOG_WARN,   // 2
     LOG_INFO,   // 3
     LOG_DEBUG,  // 4
     LOG_ALL // 5
-};
+} thttp_log_level_t ;
 
 typedef struct thttp_request {
 	thttp_method_t method;
@@ -113,7 +113,7 @@ typedef struct thttp_response {
 
 
 void thttp_set_log_func(void (*func)(int level, const char *fmt, va_list args));
-void thttp_log(int level, const char *fmt, ...);
+void thttp_log(thttp_log_level_t level, const char *fmt, ...);
 
 // full sync variant for http requests
 thttp_response_t* thttp_request_do (thttp_request_t* req);

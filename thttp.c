@@ -86,7 +86,7 @@ struct http_response_parser {
 
 static void (*external_printf)(int level, const char *fmt, va_list args) = NULL;
 
-void thttp_log(int level, const char *fmt, ...)
+void thttp_log(thttp_log_level_t level, const char *fmt, ...)
 {
 	if (!external_printf)
 		return;
