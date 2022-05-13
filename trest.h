@@ -142,4 +142,8 @@ trest_do_request (trest_ptr client,
 trest_response_ptr
 trest_do_json_request (trest_ptr client,
 		       trest_request_ptr);
+
+char*
+trest_get_addr(trest_ptr client);
+
 #endif // TREST_H

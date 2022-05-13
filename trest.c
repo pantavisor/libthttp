@@ -30,7 +30,9 @@
 #include "trest.h"
 
 #include <netinet/in.h>
+#include <sys/socket.h>
 #include <stdbool.h>
+#include <arpa/inet.h>
 
 enum trest_rtype {
 	trest_rtype_JSON =1,
@@ -581,6 +583,42 @@ restart_request:
 	}
 	return res;
 }
+
+char*
+trest_get_addr(trest_ptr client)
+{
+	struct trest *c = (struct trest*) client;
+	struct sockaddr *sa = &(c->conn);
+	struct sockaddr_in6 *addr_in6;
+	struct sockaddr_in *addr_in;
+    char *buf = NULL;
+    char ip[INET6_ADDRSTRLEN];
+	int port;
+
+	if (!c)
+		goto out;
+
+	buf = calloc(1, 64);
+
+    switch(c->conn.sa_family) {
+        case AF_INET6:
+			addr_in6 = (struct sockaddr_in6*)sa;
+			inet_ntop(AF_INET6, &(addr_in6->sin6_addr), ip, INET6_ADDRSTRLEN);
+			port = ntohs(addr_in6->sin6_port);
+            break;
+        case AF_INET:
+        default:
+			addr_in = (struct sockaddr_in*)sa;
+			inet_ntop(AF_INET, &(addr_in->sin_addr), ip, INET_ADDRSTRLEN);
+			port = ntohs(addr_in->sin_port);
+            break;
+    }
+    snprintf(buf, 64, "%s:%d", ip, port);
+
+out:
+    return buf;
+}
+
 
 // callback for blob messages. this gets called when
 // new data is available with data pointing to the
