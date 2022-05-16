@@ -191,7 +191,7 @@ make_http_req (thttp_request_t *req, char **buf)
 		*buf = buf_append (*buf, &at, "\r\n", &bufsize);
 		*buf = buf_append (*buf, &at, "\r\n", &bufsize);
 		*buf = buf_append (*buf, &at, req->body, &bufsize);
-	} else if (req->fd) {
+	} else if (req->fd >= 0) {
 		*buf = buf_append (*buf, &at, "Content-Length: ", &bufsize);
 		*buf = buf_append_int (*buf, &at, req->len, &bufsize);
 		*buf = buf_append (*buf, &at, "\r\n", &bufsize);
@@ -278,7 +278,7 @@ thttp_request_new_0()
 {
 	thttp_request_t *self = calloc (1, sizeof(thttp_request_tls_t));
 	if (self) {
-		self->fd = 0;
+		self->fd = -1;
 		self->is_tls=0;
 	}
 
@@ -1069,16 +1069,18 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 		}
 	}
 
-	if (req->fd) {
-		while (req->fd && ((bytes = read(req->fd, filebuf, 4096)) > 0)) {
+	if (req->fd >= 0) {
+		thttp_log(LOG_DEBUG, "about to upload fd %d\n", req->fd);
+		while ((bytes = read(req->fd, filebuf, 4096)) > 0) {
 			if (bytes < 0)
 				thttp_log(LOG_WARN, "read: %s", strerror(errno));
-			while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, filebuf, bytes)) <= 0) {
+			do {
+				ret = do_ctx_write(req, &ctx_plain, &ctx_tls, filebuf, bytes);
 				if (ret < 0) {
-					mbedtls_printf ("failed\n  ! write returned %d\n\n", ret);
+					thttp_log(LOG_WARN, "do_ctx_write: %s", strerror(errno));
 					goto exit_write;
 				}
-			}
+			} while (ret <= 0);
 		}
 	}
 
