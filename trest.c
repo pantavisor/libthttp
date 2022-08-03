@@ -538,11 +538,16 @@ __trest_do_json_request (trest_ptr client,
 			do_login_userpass = 1;
 			do_credentials_login(c);
 		}
-	break;
+		break;
 	case THTTP_STATUS_OK:
 		res->status = TREST_AUTH_STATUS_OK;
-	break;
+		break;
+	case THTTP_STATUS_CONFLICT:
+		res->status = TREST_AUTH_STATUS_ERROR;
+		break;
 	default:
+		// reset remembered sock addr to get potentially out of a dead server
+		memset(&c->conn, 0, sizeof(struct sockaddr));
 		res->status = TREST_AUTH_STATUS_ERROR;
 		// XXX: this needs to be redone in a way that guides
 		// clients on how to solve...
