@@ -799,12 +799,14 @@ do_ctx_tls_write(thttp_request_t* req,
 	while( (len) > 0 ) {
 		size = len > BUF_BLOCKSIZE ? BUF_BLOCKSIZE : len;
 		int written = 0;
+		// we start with write (for obvious reasons)
+		int pollmask = MBEDTLS_NET_POLL_WRITE;
 		while (size > 0) {
 			/*
 			 * TODO: Make 2000 (ms timeout) to a define.
 			 * */
-			if ( mbedtls_net_poll(&ctx->server_fd, MBEDTLS_NET_POLL_WRITE, 2000)
-					!= MBEDTLS_NET_POLL_WRITE) {
+			if ( mbedtls_net_poll(&ctx->server_fd, pollmask, 2000)
+					!= pollmask) {
 				has_error = -1;
 				break;
 			}
@@ -820,8 +822,19 @@ do_ctx_tls_write(thttp_request_t* req,
 					has_error = ret;
 					break;
 				}
-				else
+				else if (ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
+					pollmask = MBEDTLS_NET_POLL_WRITE;
 					continue;
+				}
+				else if (ret == MBEDTLS_ERR_SSL_WANT_READ) {
+					pollmask = MBEDTLS_NET_POLL_READ;
+					continue;
+				}
+				else {
+					// for IN_PROGRESS ones we assume we need to write now...
+					pollmask = MBEDTLS_NET_POLL_WRITE;
+					continue;
+				}
 			}
 			at += ret;
 			written += ret;
@@ -877,10 +890,10 @@ do_ctx_tls_read(thttp_request_t* req,
 
 	memset(buf, 0, len);
 
+	int pollmask = MBEDTLS_NET_POLL_READ;
 	while (len > 0) {
-
-		if ( mbedtls_net_poll(&ctx->server_fd, MBEDTLS_NET_POLL_READ, 2000)
-				!= MBEDTLS_NET_POLL_READ) {
+		if ( mbedtls_net_poll(&ctx->server_fd, pollmask, 2000)
+				!= pollmask) {
 			if (DEBUG)
 				mbedtls_printf("poll returned -ve value..\n");
 			break;
@@ -896,10 +909,11 @@ do_ctx_tls_read(thttp_request_t* req,
 			buf += ret;
 		}
 		else {
-			if(ret == MBEDTLS_ERR_SSL_WANT_READ ||
-					ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
-				if (DEBUG)
-					mbedtls_printf("will loop again\n");
+			if(ret == MBEDTLS_ERR_SSL_WANT_READ) {
+				pollmask = MBEDTLS_NET_POLL_READ;
+				continue;
+			} else if (ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
+				pollmask = MBEDTLS_NET_POLL_WRITE;
 				continue; // XXX: make proper enum or something for AGAIN
 			}
 			else
