@@ -709,20 +709,31 @@ do_ctx_connect_tls (int fd,
 		 * TODO: Make 2000 (ms timeout) to a define.
 		 * */
 
-		if ( start + MAX_SECS_FOR_HANDSHAKE < time(NULL))
+		if ( start + MAX_SECS_FOR_HANDSHAKE < time(NULL)){
 			break;
+		}
 
-		if (ret == MBEDTLS_ERR_SSL_WANT_WRITE)
+		if (ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
 			ret = mbedtls_net_poll(&ctx->server_fd,
-					MBEDTLS_NET_POLL_WRITE, 500);
-		else if (ret == MBEDTLS_ERR_SSL_WANT_READ)
+					       MBEDTLS_NET_POLL_WRITE, 500);
+			// we have a timeout ... lets remember what we wanted to do and continue
+			if (!ret) {
+				ret = MBEDTLS_ERR_SSL_WANT_WRITE;
+				continue;
+			}
+		}
+		else if (ret == MBEDTLS_ERR_SSL_WANT_READ) {
 			ret = mbedtls_net_poll(&ctx->server_fd,
 					MBEDTLS_NET_POLL_READ, 500);
+			if (!ret) {
+				ret = MBEDTLS_ERR_SSL_WANT_READ;
+				continue;
+			}
+		}
 
-		if ( !ret) {
-			if (DEBUG)
-				mbedtls_printf("Nothing to read from ssl socket yet\n");
-			continue;
+		if (!ret) {
+			mbedtls_printf("This code must not happen");
+			goto exit;
 		}
 
 		if ( !(ret & MBEDTLS_NET_POLL_WRITE) &&  !(ret & MBEDTLS_NET_POLL_READ))
@@ -794,6 +805,7 @@ do_ctx_tls_write(thttp_request_t* req,
 			 * */
 			if ( mbedtls_net_poll(&ctx->server_fd, MBEDTLS_NET_POLL_WRITE, 2000)
 					!= MBEDTLS_NET_POLL_WRITE) {
+				has_error = -1;
 				break;
 			}
 			ret = mbedtls_ssl_write( &ctx->ssl, (unsigned char*)(buf+at), size);
