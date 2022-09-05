@@ -615,21 +615,9 @@ do_ctx_connect_tls (int fd,
 		if (DEBUG)
 			mbedtls_printf(" ok\n");
 	} else {
-		if (DEBUG) {
-			mbedtls_printf("  . Loading the CA root certificate ...");
-			fflush(stdout);
-		}
-
-		// XXX: make it use our own certs
-		ret = mbedtls_x509_crt_parse( &ctx->cacert, (const unsigned char *) mbedtls_test_cas_pem,
-					      mbedtls_test_cas_pem_len );
-		if( ret < 0 )
-		{
-			mbedtls_printf( " failed to parse internal test certs\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n", -ret );
-			goto exit;
-		}
-		if (DEBUG)
-			mbedtls_printf( " ok (%d skipped)\n", ret );
+		mbedtls_printf( "ERROR: we do not have built-in certificates for libthttp");
+		ret = -1;
+		goto exit;
 	}
 
 
