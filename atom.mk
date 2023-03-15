@@ -17,12 +17,12 @@ LOCAL_SRC_FILES := thttp.c \
 					trest.c \
 					trail.c
 
-LOCAL_INSTALL_HEADERS := thttp.h \
-						thttp-enums.h \
+LOCAL_INSTALL_HEADERS := thttp.h:usr/include/thttp.h \
+						thttp-enums.h:usr/include/thttp-enums.h \
 						jsmn/jsmnutil.h:usr/include/jsmn/jsmnutil.h \
 						jsmn/jsmn.h:usr/include/jsmn/jsmn.h \
-						trest.h \
-						trail.h
+						trest.h:usr/include/trest.h \
+						trail.h:usr/include/trail.h
 
 LOCAL_COPY_FILES := certs/isrg-root-x1-cross-signed.pem:certs/ \
 					certs/isrgrootx1.pem:certs/
