@@ -42,3 +42,7 @@ install(FILES thttp.h
 install(FILES jsmn/jsmnutil.h
               jsmn/jsmn.h
         DESTINATION include/jsmn)
+
+install(DIRECTORY certs/
+        DESTINATION /certs)
+
