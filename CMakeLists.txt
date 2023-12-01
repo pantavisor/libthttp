@@ -33,8 +33,6 @@ install(TARGETS thttp
 
 install(FILES thttp.h
               thttp-enums.h
-              jsmn/jsmnutil.h
-              jsmn/jsmn.h
               trest.h
               trail.h
         DESTINATION include)
