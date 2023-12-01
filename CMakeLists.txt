@@ -1,19 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(thttp LANGUAGES C)
 
-include(FindPackageHandleStandardArgs)
-
-find_path(MBEDTLS_INCLUDE_DIRS mbedtls/ssl.h)
-find_library(MBEDTLS_LIBRARY mbedtls)
-find_library(MBEDX509_LIBRARY mbedx509)
-find_library(MBEDCRYPTO_LIBRARY mbedcrypto)
-set(MBEDTLS_LIBRARIES "${MBEDTLS_LIBRARY}" "${MBEDX509_LIBRARY}" "${MBEDCRYPTO_LIBRARY}")
-find_package_handle_standard_args(MBEDTLS DEFAULT_MSG
-    MBEDTLS_INCLUDE_DIRS MBEDTLS_LIBRARY MBEDX509_LIBRARY MBEDCRYPTO_LIBRARY)
-mark_as_advanced(MBEDTLS_INCLUDE_DIRS MBEDTLS_LIBRARY MBEDX509_LIBRARY MBEDCRYPTO_LIBRARY)
-
-
-include_directories(${MBEDTLS_INCLUDE_DIR})
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
+find_package(MbedTLS REQUIRED)
 
 add_library(thttp STATIC  thttp.c
                              tinyhttp/chunk.c
@@ -23,6 +12,12 @@ add_library(thttp STATIC  thttp.c
                              jsmn/jsmn.c
                              trest.c
                              trail.c)
+
+target_link_libraries(thttp PRIVATE
+    MbedTLS::MbedTLS
+    MbedTLS::MbedX509
+    MbedTLS::MbedCrypto
+)
 
 install(TARGETS thttp
         LIBRARY DESTINATION lib)
