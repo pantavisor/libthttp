@@ -6,28 +6,7 @@ LOCAL_MODULE := libthttp
 LOCAL_DESCRIPTION := trest C library
 LOCAL_LIBRARIES := mbedtls
 
-LOCAL_LDFLAGS := --static
-
-LOCAL_SRC_FILES := thttp.c \
-					tinyhttp/chunk.c \
-					tinyhttp/header.c \
-					tinyhttp/http.c \
-					jsmn/jsmnutil.c \
-					jsmn/jsmn.c \
-					trest.c \
-					trail.c
-
-LOCAL_INSTALL_HEADERS := thttp.h:usr/include/thttp.h \
-						thttp-enums.h:usr/include/thttp-enums.h \
-						jsmn/jsmnutil.h:usr/include/jsmn/jsmnutil.h \
-						jsmn/jsmn.h:usr/include/jsmn/jsmn.h \
-						trest.h:usr/include/trest.h \
-						trail.h:usr/include/trail.h
-
-LOCAL_COPY_FILES := certs/isrg-root-x1-cross-signed.pem:certs/ \
-					certs/isrgrootx1.pem:certs/
-
-include $(BUILD_STATIC_LIBRARY)
+include $(BUILD_CMAKE)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := thttp-example1-tls
