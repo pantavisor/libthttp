@@ -5,6 +5,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libthttp
 LOCAL_DESCRIPTION := trest C library
 LOCAL_LIBRARIES := mbedtls
+LOCAL_EXPORT_LDLIBS := -lthttp
 
 include $(BUILD_CMAKE)
 
