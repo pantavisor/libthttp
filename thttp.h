@@ -26,6 +26,7 @@
 #include "thttp-enums.h"
 #include <netinet/in.h>
 #include <stdarg.h>
+#include <sys/types.h>
 
 #ifndef DEBUG
 #define DEBUG 0
@@ -67,7 +68,7 @@ typedef struct thttp_request {
 	int nr_headers;
 
 	int fd;
-	int len;
+	off_t len;
 
 	char *body;
 	char *body_content_type;
