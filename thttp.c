@@ -126,13 +126,20 @@ buf_append (char *buf, size_t *at, const char* append, size_t *bufsize)
 }
 
 static char*
-buf_append_int(char *buf, size_t *at, int append, size_t *bufsize)
+buf_append_intmax(char *buf, size_t *at, intmax_t append, size_t *bufsize)
 {
 	char append_buf[256];
-	sprintf(append_buf, "%d", append);
+	sprintf(append_buf, "%jd", append);
 	buf = buf_append (buf, at, append_buf, bufsize);
 	return buf;
 }
+
+static char*
+buf_append_int(char *buf, size_t *at, int append, size_t *bufsize)
+{
+	return buf_append_intmax(buf, at, (intmax_t)append, bufsize);
+}
+
 
 static size_t
 make_http_req (thttp_request_t *req, char **buf)
@@ -193,7 +200,7 @@ make_http_req (thttp_request_t *req, char **buf)
 		*buf = buf_append (*buf, &at, req->body, &bufsize);
 	} else if (req->fd >= 0) {
 		*buf = buf_append (*buf, &at, "Content-Length: ", &bufsize);
-		*buf = buf_append_int (*buf, &at, req->len, &bufsize);
+		*buf = buf_append_intmax (*buf, &at, req->len, &bufsize);
 		*buf = buf_append (*buf, &at, "\r\n", &bufsize);
 		*buf = buf_append (*buf, &at, "Content-Type: ", &bufsize);
 		*buf = buf_append (*buf, &at, req->body_content_type, &bufsize);
