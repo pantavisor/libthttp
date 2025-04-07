@@ -112,12 +112,37 @@ typedef struct thttp_response {
 	thttp_status_t code;
 } thttp_response_t;
 
+struct _req_ctx_plain {
+	int server_fd;
+	struct sockaddr_in server_addr;
+	struct hostent *server_host;
+	int is_tls;
+};
+
+#include "mbedtls/net.h"
+#include "mbedtls/ssl.h"
+#include "mbedtls/entropy.h"
+#include "mbedtls/ctr_drbg.h"
+#include "mbedtls/x509_crt.h"
+
+struct _req_ctx_tls {
+	mbedtls_net_context server_fd;
+	mbedtls_entropy_context entropy;
+	mbedtls_ctr_drbg_context ctr_drbg;
+	mbedtls_ssl_context ssl;
+	mbedtls_ssl_config conf;
+	mbedtls_x509_crt cacert;
+};
 
 void thttp_set_log_func(void (*func)(int level, const char *fmt, va_list args));
 void thttp_log(thttp_log_level_t level, const char *fmt, ...);
 
 // full sync variant for http requests
 thttp_response_t* thttp_request_do (thttp_request_t* req);
+
+// async for http requests
+int thttp_send_request (thttp_request_t* req, struct _req_ctx_plain *ctx_plain, struct _req_ctx_tls *ctx_tls);
+thttp_response_t* thttp_recv_response (struct _req_ctx_plain *ctx_plain, struct _req_ctx_tls *ctx_tls);
 
 // save body to file instead of saving to buffer
 // content-length will be set, but body will be null in response.

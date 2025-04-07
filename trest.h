@@ -141,7 +141,17 @@ trest_do_request (trest_ptr client,
 
 trest_response_ptr
 trest_do_json_request (trest_ptr client,
-		       trest_request_ptr);
+		       trest_request_ptr req_in);
+
+
+
+struct ctx_trest {
+	struct _req_ctx_plain plain;
+	struct _req_ctx_tls tls;
+};
+
+int trest_send_json_request (trest_ptr client, trest_request_ptr, struct ctx_trest *ctx);
+trest_response_ptr trest_recv_json_response (trest_ptr client, struct ctx_trest *ctx);
 
 char*
 trest_get_addr(trest_ptr client);

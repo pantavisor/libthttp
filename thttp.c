@@ -349,21 +349,6 @@ thttp_response_free (thttp_response_t* ptr)
 	free (ptr);
 }
 
-struct _req_ctx_plain {
-	int server_fd;
-	struct sockaddr_in server_addr;
-	struct hostent *server_host;
-};
-
-struct _req_ctx_tls {
-	mbedtls_net_context server_fd;
-	mbedtls_entropy_context entropy;
-	mbedtls_ctr_drbg_context ctr_drbg;
-	mbedtls_ssl_context ssl;
-	mbedtls_ssl_config conf;
-	mbedtls_x509_crt cacert;
-};
-
 static int is_remote_reachable(int sockfd, struct sockaddr *rp, socklen_t len)
 {
 	struct timeval tv;
@@ -870,8 +855,7 @@ do_ctx_plain_read(thttp_request_t* req,
 	return ret;
 }
 static int
-do_ctx_tls_read(thttp_request_t* req,
-		struct _req_ctx_tls *ctx,
+do_ctx_tls_read(struct _req_ctx_tls *ctx,
 		char *buf,
 		int len)
 {
@@ -931,7 +915,7 @@ do_ctx_read(thttp_request_t* req,
 	    int len)
 {
 	if (req->is_tls) {
-		return do_ctx_tls_read(req, ctx_tls, buf, len);
+		return do_ctx_tls_read(ctx_tls, buf, len);
 	}
 
 	return do_ctx_plain_read(req, ctx_plain, buf, len);
@@ -945,8 +929,7 @@ do_ctx_plain_close (thttp_request_t* req,
 }
 
 static int
-do_ctx_tls_close (thttp_request_t* req,
-		  struct _req_ctx_tls *ctx)
+do_ctx_tls_close (struct _req_ctx_tls *ctx)
 {
 	mbedtls_net_free( &ctx->server_fd );
 	mbedtls_x509_crt_free( &ctx->cacert );
@@ -964,7 +947,7 @@ do_ctx_close(thttp_request_t* req,
 	    struct _req_ctx_tls *ctx_tls)
 {
 	if (req->is_tls) {
-		return do_ctx_tls_close(req, ctx_tls);
+		return do_ctx_tls_close(ctx_tls);
 	}
 
 	return do_ctx_plain_close(req, ctx_plain);
@@ -1162,6 +1145,120 @@ thttp_request_do (thttp_request_t *req)
 		mbedtls_printf("thttp parser return: ret = %d, parser.out=%s\n",
 				rv, (parser.out? "nil":parser.out->body));
 	return parser.out;
+}
+
+int thttp_send_request (thttp_request_t* req, struct _req_ctx_plain *ctx_plain, struct _req_ctx_tls *ctx_tls)
+{
+	int ret = -1, res = -1, len, bytes;
+	char *reqbuf = NULL;
+	char filebuf[4096];
+
+	memset(ctx_plain, 0, sizeof(*ctx_plain));
+	memset(ctx_tls, 0, sizeof(*ctx_tls));
+	ctx_plain->is_tls = req->is_tls;
+
+	if (DEBUG) {
+		mbedtls_printf("Connecting to tcp/%s/%4d...", req->host,
+		       req->port);
+		fflush (stdout);
+	}
+
+	if((res = do_ctx_connect(req, ctx_plain, ctx_tls)) < 0)
+		goto out;
+
+	if (DEBUG){
+		mbedtls_printf ("Write to server:\n");
+		fflush (stdout);
+	}
+
+	len = make_http_req(req, &reqbuf);
+
+	if (DEBUG)
+		mbedtls_printf ("%s\n", reqbuf);
+
+	thttp_log(LOG_DEBUG, "%s\n", reqbuf);
+
+	while ((res = do_ctx_tls_write(req, ctx_tls, reqbuf, len)) <= 0) {
+		if (res < 0) {
+			mbedtls_printf ("failed\n  ! write returned %d\n\n", res);
+			goto out;
+		}
+	}
+
+	if (req->fd >= 0) {
+		thttp_log(LOG_DEBUG, "about to upload fd %d\n", req->fd);
+		while ((bytes = read(req->fd, filebuf, 4096)) > 0) {
+			if (bytes < 0)
+				thttp_log(LOG_WARN, "read: %s", strerror(errno));
+			do {
+				res = do_ctx_tls_write(req, ctx_tls, filebuf, bytes);
+				if (res < 0) {
+					thttp_log(LOG_WARN, "do_ctx_tls_write: %s", strerror(errno));
+					goto out;
+				}
+			} while (res <= 0);
+		}
+	}
+
+	ret = 0;
+
+out:
+	if (reqbuf)
+		free (reqbuf);
+	return ret;
+}
+
+thttp_response_t* thttp_recv_response (struct _req_ctx_plain *ctx_plain, struct _req_ctx_tls *ctx_tls)
+{
+	int res = -1, len;
+	char resbuf[4*8192];
+	int needmore = 1;
+	struct http_response_parser parser;
+	struct http_roundtripper rt;
+
+	http_init(&rt, _http_response_funcs, &parser);
+	memset(resbuf, 0, sizeof(resbuf));
+
+	memset (&parser, 0, sizeof (parser));
+	parser.out = calloc(1, sizeof(thttp_response_t));
+	if (!parser.out)
+		goto out;
+
+	while (needmore) {
+		char* data = resbuf;
+		len = sizeof(resbuf);
+		res = do_ctx_tls_read(ctx_tls, resbuf, len);
+
+		if(res <= 0) {
+			if (DEBUG)
+				mbedtls_printf ("\n---FINISHED or FAILED: ssl_read returned %d\n\n", res);
+			break;
+		}
+
+		len = res;
+
+		while(needmore && res) {
+			int read;
+			needmore = http_data(&rt, resbuf, res, &read);
+			res -= read;
+			data += read;
+			if(parser.file_error) {
+				mbedtls_printf("Error writing to file\n");
+				goto out;
+			}
+		}
+	}
+	if(http_iserror(&rt)) {
+		mbedtls_printf("Error parsing data\n");
+		goto out;
+	}
+
+out:
+	http_free(&rt);
+	mbedtls_ssl_close_notify(&ctx_tls->ssl);
+	do_ctx_tls_close(ctx_tls);
+
+	return res < 0 ? NULL : parser.out;
 }
 
 thttp_response_t*

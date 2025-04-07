@@ -589,6 +589,140 @@ restart_request:
 	return res;
 }
 
+int trest_send_json_request (trest_ptr client, trest_request_ptr request, struct ctx_trest *ctx)
+{
+	struct trest *c = (struct trest*) client;
+	struct trest_request *req_in = (struct trest_request*) request;
+	thttp_request_t *req = NULL;
+
+	if (!c->is_tls) {
+		req = thttp_request_new_0();
+	} else {
+		req = (thttp_request_t*) thttp_request_tls_new_0();
+		ctx->plain.is_tls = 1;
+	}
+
+	if (!req)
+		return -1;
+
+	if (c->is_tls) {
+		((thttp_request_tls_t*)req)->crtfiles = c->tls_cafiles;
+		req->baseurl = calloc(1, sizeof(char)*(strlen("https://") + strlen(c->host) + 1 /* : */ + 5 /* port */ + 2 /* 0-delim */));
+		sprintf(req->baseurl, "https://%s:%d", c->host, c->port);
+	} else {
+		req->baseurl = calloc(1, sizeof(char)*(strlen("http://") + strlen(c->host) + 1 /* : */ + 5 /* port */ + 2 /* 0-delim */));
+		sprintf(req->baseurl, "http://%s:%d", c->host, c->port);
+	}
+
+	req->method = req_in->method;
+	req->proto = THTTP_PROTO_HTTP;
+	req->proto_version = THTTP_PROTO_VERSION_10;
+	req->path = req_in->endpoint_path;
+	req->user_agent = c->user_agent;
+	req->host = c->host;
+	req->port = c->port;
+	req->host_proxy = c->host_proxy;
+	req->port_proxy = c->port_proxy;
+	if (req->host_proxy)
+		ctx->plain.is_tls = c->is_tls_proxy;
+	if (req->host_proxy)
+		req->proxyconnect = c->proxyconnect;
+	req->body = req_in->json_body;
+	req->conn = c->conn;
+	if (req_in->json_body)
+		req->body_content_type = "application/json";
+
+	if (c->access_token) {
+		const char *autht = "Authorization: Bearer %s";
+		char *headers_i = malloc(strlen(autht) + strlen (c->access_token) + 1);
+		if (headers_i) {
+			char *headers[] = {headers_i, NULL};
+
+			sprintf (headers_i, autht, c->access_token);
+			thttp_add_headers(req, headers, 1);
+			if (DEBUG)
+				printf("Added access_token header: %s\n", headers_i);
+
+			free(headers_i);
+		}
+	}
+
+	int fd = thttp_send_request(req, &ctx->plain, &ctx->tls);
+
+	if (req)
+		thttp_request_free(req);
+
+	return fd;
+}
+
+trest_response_ptr trest_recv_json_response (trest_ptr client, struct ctx_trest *ctx)
+{
+	thttp_response_t *response;
+	trest_response_t *res = calloc (1, sizeof(trest_response_t));
+	struct trest *c = (struct trest*) client;
+	static char do_login_userpass = 0;
+	char *headers_i = NULL;
+
+	if (!res)
+		goto out;
+
+	response = thttp_recv_response(&ctx->plain, &ctx->tls);
+	if (!response)
+		goto out;
+
+	if (response->body) {
+		res->body = strdup(response->body);
+		if (!res->body) {
+			res->body = response->body;
+			response->body = NULL;
+		}
+		res->json_tokc = jsmnutil_parse_json (res->body, &res->json_tokv, &res->json_toks);
+		if (!res->json_tokc)
+		{
+			// XXX: update auth status of response?
+			printf ("failed to parse_json\n");
+			trest_response_free(res);
+			thttp_response_free(response);
+			res = 0;
+			goto out;
+		}
+	}
+	// XXX: strvdup this one...
+	res->headers = response->headers;
+	res->code = response->code;
+
+	switch (response->code) {
+	case THTTP_STATUS_UNAUTHORIZED:
+		res->status = TREST_AUTH_STATUS_NOTAUTH;
+
+		if (!do_login_userpass) {
+			thttp_log(LOG_WARN, "401 Unauthorized received. Refreshing credentials...");
+			do_login_userpass = 1;
+			do_credentials_login(c);
+		}
+		break;
+	case THTTP_STATUS_OK:
+		res->status = TREST_AUTH_STATUS_OK;
+		break;
+	case THTTP_STATUS_CONFLICT:
+		res->status = TREST_AUTH_STATUS_ERROR;
+		break;
+	default:
+		// reset remembered sock addr to get potentially out of a dead server
+		memset(&c->conn, 0, sizeof(struct sockaddr));
+		res->status = TREST_AUTH_STATUS_ERROR;
+		// XXX: this needs to be redone in a way that guides
+		// clients on how to solve...
+	}
+
+	thttp_response_free(response);
+out:
+	if (do_login_userpass)
+		do_login_userpass = 0;
+
+	return (trest_response_ptr) res;
+}
+
 char*
 trest_get_addr(trest_ptr client)
 {
