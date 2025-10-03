@@ -16,7 +16,6 @@ find_package_handle_standard_args(MBEDTLS DEFAULT_MSG
     MBEDTLS_INCLUDE_DIRS MBEDTLS_LIBRARY MBEDX509_LIBRARY MBEDCRYPTO_LIBRARY)
 mark_as_advanced(MBEDTLS_INCLUDE_DIRS MBEDTLS_LIBRARY MBEDX509_LIBRARY MBEDCRYPTO_LIBRARY)
 
-
 include_directories(${MBEDTLS_INCLUDE_DIR})
 
 add_library(thttp STATIC  thttp.c
@@ -44,5 +43,5 @@ install(FILES jsmn/jsmnutil.h
         DESTINATION include/jsmn)
 
 install(DIRECTORY certs/
-        DESTINATION /certs)
+        DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/${CMAKE_PROJECT_NAME}/certs)
 
