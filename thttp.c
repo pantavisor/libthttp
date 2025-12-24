@@ -902,6 +902,7 @@ do_ctx_tls_read(thttp_request_t* req,
 		else if (ret > 0) {
 			len -= ret;
 			buf += ret;
+			break;
 		}
 		else {
 			if(ret == MBEDTLS_ERR_SSL_WANT_READ) {
