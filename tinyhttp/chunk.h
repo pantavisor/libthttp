@@ -39,7 +39,7 @@ extern "C" {
  * \r\n. The state parameter is used for internal state and should be
  * initialized to zero the first call.
  */
-int http_parse_chunked(int* state, int *size, char ch);
+int http_parse_chunked(int *state, int *size, char ch);
 
 #if defined(__cplusplus)
 }

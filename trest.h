@@ -33,8 +33,8 @@ typedef enum trest_auth_status {
 	TREST_AUTH_STATUS_UNKNOWN = 10000,
 } trest_auth_status_enum;
 
-typedef void* trest_ptr;
-typedef void* trest_request_ptr;
+typedef void *trest_ptr;
+typedef void *trest_request_ptr;
 
 typedef struct trest_response {
 	trest_auth_status_enum status;
@@ -49,8 +49,7 @@ typedef struct trest_response {
 
 } trest_response_t;
 
-
-typedef trest_response_t* trest_response_ptr;
+typedef trest_response_t *trest_response_ptr;
 
 // callback for blob messages. this gets called when
 // new data is available with data pointing to the
@@ -59,72 +58,53 @@ typedef trest_response_t* trest_response_ptr;
 // Special conditions are treated like the following:
 //  - EOF:  data == 0 && data_len == 0
 //  - ERROR" data == 0 && data_len == ERROR_CODE
-typedef void (*trest_cb) (void *user_data,
-			  unsigned char* data,
-			  size_t data_len);
+typedef void (*trest_cb)(void *user_data, unsigned char *data, size_t data_len);
 
-trest_ptr
-trest_new_from_userpass(const char* host, int port,
-			const char *user,
-			const char *pass,
-			const char *user_agent,
-			const struct sockaddr *cached);
+trest_ptr trest_new_from_userpass(const char *host, int port, const char *user,
+				  const char *pass, const char *user_agent,
+				  const struct sockaddr *cached);
 
-trest_ptr
-trest_new_tls_from_userpass(const char* host, int port,
-			    const char *user,
-			    const char *pass,
-			    const char **ca_files,
-			    const char *user_agent,
-			    const struct sockaddr *cached);
+trest_ptr trest_new_tls_from_userpass(const char *host, int port,
+				      const char *user, const char *pass,
+				      const char **ca_files,
+				      const char *user_agent,
+				      const struct sockaddr *cached);
 
-trest_ptr
-trest_new_with_login_handler(const char* host, int port,
-			struct trest_response* (*login_handler) (trest_ptr self, void* data),
-			void *login_data,
-			const char *user_agent,
-			const struct sockaddr *cached_sock);
-trest_ptr
-trest_new_tls_with_login_handler(const char* host, int port,
-			struct trest_response* (*login_handler) (trest_ptr self, void* data),
-			void *login_data,
-			const char **ca_files,
-			const char *user_agent,
-			const struct sockaddr *cached_sock);
+trest_ptr trest_new_with_login_handler(
+	const char *host, int port,
+	struct trest_response *(*login_handler)(trest_ptr self, void *data),
+	void *login_data, const char *user_agent,
+	const struct sockaddr *cached_sock);
+trest_ptr trest_new_tls_with_login_handler(
+	const char *host, int port,
+	struct trest_response *(*login_handler)(trest_ptr self, void *data),
+	void *login_data, const char **ca_files, const char *user_agent,
+	const struct sockaddr *cached_sock);
 
-void
-trest_set_proxy(trest_ptr c, char *host, int port, int tls);
-void
-trest_set_proxy_connect(trest_ptr c, char *host, int port, int tls, int proxyconnect);
+void trest_set_proxy(trest_ptr c, char *host, int port, int tls);
+void trest_set_proxy_connect(trest_ptr c, char *host, int port, int tls,
+			     int proxyconnect);
 
-void
-trest_free (trest_ptr ptr);
+void trest_free(trest_ptr ptr);
 
-void
-trest_request_free (trest_request_ptr ptr);
+void trest_request_free(trest_request_ptr ptr);
 
-void
-trest_response_free (trest_response_ptr ptr);
+void trest_response_free(trest_response_ptr ptr);
 
 // check auth status if you are just interested in this
-trest_auth_status_enum
-trest_auth_status (trest_ptr ptr);
+trest_auth_status_enum trest_auth_status(trest_ptr ptr);
 
 // update auth tokens if possible. usually tries refresh_token
 // against the login endpoint and then other credentials
 // if available. usually needs to be called once to get
 // initial auth token, but this behaviour depends on the
 // credential type and backend implementation.
-trest_auth_status_enum
-trest_update_auth (trest_ptr ptr);
+trest_auth_status_enum trest_update_auth(trest_ptr ptr);
 
 // make a json request; uses Encoding application/json
 // and Accept-Endcoding application/json accordingly
-trest_request_ptr
-trest_make_request (thttp_method_t method,
-		    char *endpoint_path,
-		    char *json_body);
-
+trest_request_ptr trest_make_request(thttp_method_t method, char *endpoint_path,
+				     char *json_body);
 
 // execute the request.
 // XXX: later or think about:
@@ -133,17 +113,11 @@ trest_make_request (thttp_method_t method,
 //   -- endpoint prefix is determined through a setting that
 //   -- can be tweaked against the _request objects. By
 //   -- default the client uses.
-trest_response_ptr
-trest_do_request (trest_ptr client,
-		  trest_request_ptr ptr,
-		  trest_cb callback,
-		  void* user_data);
+trest_response_ptr trest_do_request(trest_ptr client, trest_request_ptr ptr,
+				    trest_cb callback, void *user_data);
 
-trest_response_ptr
-trest_do_json_request (trest_ptr client,
-		       trest_request_ptr);
+trest_response_ptr trest_do_json_request(trest_ptr client, trest_request_ptr);
 
-char*
-trest_get_addr(trest_ptr client);
+char *trest_get_addr(trest_ptr client);
 
 #endif // TREST_H

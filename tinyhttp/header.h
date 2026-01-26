@@ -31,16 +31,15 @@
 extern "C" {
 #endif
 
-enum http_header_status
-{
-    http_header_status_done,
-    http_header_status_continue,
-    http_header_status_version_character,
-    http_header_status_code_character,
-    http_header_status_status_character,
-    http_header_status_key_character,
-    http_header_status_value_character,
-    http_header_status_store_keyvalue
+enum http_header_status {
+	http_header_status_done,
+	http_header_status_continue,
+	http_header_status_version_character,
+	http_header_status_code_character,
+	http_header_status_status_character,
+	http_header_status_key_character,
+	http_header_status_value_character,
+	http_header_status_store_keyvalue
 };
 
 /**
@@ -52,7 +51,7 @@ enum http_header_status
  * success http_header_status_done is returned with the state parameter set to
  * zero.
  */
-int http_parse_header_char(int* state, char ch);
+int http_parse_header_char(int *state, char ch);
 
 #if defined(__cplusplus)
 }

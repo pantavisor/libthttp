@@ -37,13 +37,13 @@
 #endif
 
 typedef enum {
-    LOG_FATAL,  // 0
-    LOG_ERROR,  // 1
-    LOG_WARN,   // 2
-    LOG_INFO,   // 3
-    LOG_DEBUG,  // 4
-    LOG_ALL // 5
-} thttp_log_level_t ;
+	LOG_FATAL, // 0
+	LOG_ERROR, // 1
+	LOG_WARN, // 2
+	LOG_INFO, // 3
+	LOG_DEBUG, // 4
+	LOG_ALL // 5
+} thttp_log_level_t;
 
 typedef struct thttp_request {
 	thttp_method_t method;
@@ -102,7 +102,6 @@ typedef struct thttp_request_tls {
 	void *ciphersuites;
 } thttp_request_tls_t;
 
-
 typedef struct thttp_response {
 	thttp_method_t method;
 	thttp_proto_t proto;
@@ -112,42 +111,41 @@ typedef struct thttp_response {
 	thttp_status_t code;
 } thttp_response_t;
 
-
 void thttp_set_log_func(void (*func)(int level, const char *fmt, va_list args));
 void thttp_log(thttp_log_level_t level, const char *fmt, ...);
 
 // full sync variant for http requests
-thttp_response_t* thttp_request_do (thttp_request_t* req);
+thttp_response_t *thttp_request_do(thttp_request_t *req);
 
 // save body to file instead of saving to buffer
 // content-length will be set, but body will be null in response.
-thttp_response_t* thttp_request_do_file (thttp_request_t *req, int fd);
+thttp_response_t *thttp_request_do_file(thttp_request_t *req, int fd);
 
-thttp_response_t* thttp_request_do_file_with_cb (thttp_request_t *req,
-	int fd, void (*progress_cb)(ssize_t written, ssize_t chunksize, void *priv),
+thttp_response_t *thttp_request_do_file_with_cb(
+	thttp_request_t *req, int fd,
+	void (*progress_cb)(ssize_t written, ssize_t chunksize, void *priv),
 	void *priv);
 
-thttp_request_t* thttp_request_new_0 ();
-thttp_request_tls_t* thttp_request_tls_new_0 ();
+thttp_request_t *thttp_request_new_0();
+thttp_request_tls_t *thttp_request_tls_new_0();
 
-void thttp_request_free (thttp_request_t* ptr);
-void thttp_response_free (thttp_response_t* ptr);
+void thttp_request_free(thttp_request_t *ptr);
+void thttp_response_free(thttp_response_t *ptr);
 
-void thttp_add_headers(struct thttp_request *req, char **headers, int nr_headers);
+void thttp_add_headers(struct thttp_request *req, char **headers,
+		       int nr_headers);
 
-thttp_status_t thttp_string_to_status (char *string);
-const char* thttp_status_to_string (thttp_status_t status);
+thttp_status_t thttp_string_to_status(char *string);
+const char *thttp_status_to_string(thttp_status_t status);
 
-thttp_proto_t thttp_string_to_proto (char *string);
-const char* thttp_proto_to_string (thttp_proto_t proto);
+thttp_proto_t thttp_string_to_proto(char *string);
+const char *thttp_proto_to_string(thttp_proto_t proto);
 
-thttp_proto_version_t thttp_string_to_proto_version (char* string);
-const char* thttp_proto_version_to_string (thttp_proto_version_t proto);
+thttp_proto_version_t thttp_string_to_proto_version(char *string);
+const char *thttp_proto_version_to_string(thttp_proto_version_t proto);
 
-thttp_method_t
-thttp_string_to_method (char *string);
+thttp_method_t thttp_string_to_method(char *string);
 
-const char*
-thttp_method_to_string (thttp_method_t method);
+const char *thttp_method_to_string(thttp_method_t method);
 
 #endif // THTTP_H
