@@ -6,15 +6,14 @@
 #include "jsmnutil.h"
 #include "jsmn.h"
 
-typedef void (*token_iter_f)(void *data, const char *buf, jsmntok_t *tok,
-			     int c);
+typedef void (*token_iter_f)(void *data, const char *buf, jsmntok_t *tok, int c);
 
-static int traverse_token(const char *buf, jsmntok_t *tok)
+int jsmnutil_traverse_token(const char *buf, jsmntok_t *tok)
 {
 	int i;
 	int c = 1;
 	for (i = 0; i < tok->size; i++) {
-		c += traverse_token(buf, tok + c);
+		c += jsmnutil_traverse_token(buf, tok + c);
 	}
 	return c;
 }
@@ -33,7 +32,7 @@ static int iterate_json_item(const char *buf, jsmntok_t *tok, token_iter_f func,
 	c++;
 	for (i = 0; i < tok->size; i++) {
 		func(data, buf, tok + c, i);
-		c += traverse_token(buf, tok + c);
+		c += jsmnutil_traverse_token(buf, tok + c);
 	}
 
 	return JSMNUTIL_OK;
@@ -46,8 +45,7 @@ static char *get_json_key_value(char *buf, char *key, jsmntok_t *tok, int tokc)
 
 	for (i = 0; i < tokc; i++) {
 		int n = tok[i].end - tok[i].start;
-		if (tok[i].type == JSMN_STRING &&
-		    !strncmp(buf + tok[i].start, key, n)) {
+		if (tok[i].type == JSMN_STRING && !strncmp(buf + tok[i].start, key, n)) {
 			t = 1;
 		} else if (t == 1) {
 			char *idval = malloc(n + 1);
@@ -62,8 +60,7 @@ static char *get_json_key_value(char *buf, char *key, jsmntok_t *tok, int tokc)
 	return NULL;
 }
 
-static void tok_arr_append_cb(void *data, const char *buf, jsmntok_t *tok,
-			      int c)
+static void tok_arr_append_cb(void *data, const char *buf, jsmntok_t *tok, int c)
 {
 	jsmntok_t **arr = (jsmntok_t **)data;
 	// XXX: figure get_array_toks without the +1 offset.
