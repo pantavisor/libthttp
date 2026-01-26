@@ -23,8 +23,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-static inline char *
-make_message(const char *fmt, ...)
+static inline char *make_message(const char *fmt, ...)
 {
 	int size = 0;
 	char *p = NULL;
@@ -39,7 +38,7 @@ make_message(const char *fmt, ...)
 	if (size < 0)
 		return NULL;
 
-	size++;             /* For '\0' */
+	size++; /* For '\0' */
 	p = malloc(size);
 	if (p == NULL)
 		return NULL;

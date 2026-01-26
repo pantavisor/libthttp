@@ -35,14 +35,14 @@
 #include <arpa/inet.h>
 
 enum trest_rtype {
-	trest_rtype_JSON =1,
+	trest_rtype_JSON = 1,
 	trest_rtype_BLOB,
 };
 
 enum trest_auth_type {
-	trest_auth_type_BASIC=0,
+	trest_auth_type_BASIC = 0,
 	trest_auth_type_DAUTH,
-	trest_auth_type_UNKNOWN=10000
+	trest_auth_type_UNKNOWN = 10000
 };
 
 struct trest {
@@ -68,7 +68,7 @@ struct trest {
 	struct sockaddr conn;
 
 	// we allow third party handlers for login to be implemented
-	struct trest_response* (*login_handler) (trest_ptr self, void* data);
+	struct trest_response *(*login_handler)(trest_ptr self, void *data);
 	void *login_data;
 };
 
@@ -78,16 +78,15 @@ struct trest_request {
 
 	char *endpoint_path;
 	char *json_body;
-	void (*on_free)(struct trest_request*);
+	void (*on_free)(struct trest_request *);
 };
 
-static void
-update_tokens_from_json_response (struct trest *self,
-				  struct trest_response *response)
+static void update_tokens_from_json_response(struct trest *self,
+					     struct trest_response *response)
 {
 	// if we got a response parse it
 	jsmntok_t *jv;
-	int c,i,t=-1;
+	int c, i, t = -1;
 	char *body;
 
 	jv = response->json_tokv;
@@ -95,18 +94,18 @@ update_tokens_from_json_response (struct trest *self,
 	body = response->body;
 
 	if (DEBUG)
-		printf ("update_tokens_from_json_response: %s\n", body);
+		printf("update_tokens_from_json_response: %s\n", body);
 
-	for (i=0; i<c && t != 0; i++) {
+	for (i = 0; i < c && t != 0; i++) {
 		int n = jv[i].end - jv[i].start;
-		char *token = malloc(n+1);
+		char *token = malloc(n + 1);
 		strncpy(token, body + jv[i].start, n);
-		token[n]=0;
+		token[n] = 0;
 
-		if (jv[i].type == JSMN_STRING
-		    && !strncmp(body + jv[i].start, "token", 5)) {
-			t=1;
-		} else if (t==1 && jv[i].type == JSMN_STRING) {
+		if (jv[i].type == JSMN_STRING &&
+		    !strncmp(body + jv[i].start, "token", 5)) {
+			t = 1;
+		} else if (t == 1 && jv[i].type == JSMN_STRING) {
 			token[n] = 0;
 			strncpy(token, body + jv[i].start, n);
 			if (self->access_token)
@@ -115,9 +114,9 @@ update_tokens_from_json_response (struct trest *self,
 
 			if (self->refresh_token)
 				free(self->refresh_token);
-			self->refresh_token = strdup (token);
-		} else if (t==1) {
-			t=0;
+			self->refresh_token = strdup(token);
+		} else if (t == 1) {
+			t = 0;
 		}
 		free(token);
 	}
@@ -127,57 +126,52 @@ update_tokens_from_json_response (struct trest *self,
 		printf("New refresh token: %s\n", self->access_token);
 }
 
-static trest_auth_status_enum
-do_refresh_login (struct trest *self)
+static trest_auth_status_enum do_refresh_login(struct trest *self)
 {
 	// for start lets clear access_token if set
 	if (self->access_token) {
 		return self->status;
-	}
-	else {
+	} else {
 		self->status = TREST_AUTH_STATUS_NOTAUTH;
 	}
 	return self->status;
 }
 
-static struct trest_response*
-do_credentials_login_userpass (trest_ptr client, void *cb_data)
+static struct trest_response *do_credentials_login_userpass(trest_ptr client,
+							    void *cb_data)
 {
 	trest_response_ptr r;
 	trest_request_ptr p;
 	struct trest *self = client;
 
-	const char* userpass =
-		"{ \"username\": \"%s\""
-		", \"password\": \"%s\" }";
+	const char *userpass = "{ \"username\": \"%s\""
+			       ", \"password\": \"%s\" }";
 
-	char *b = malloc (sizeof(char) *
-			  (strlen(userpass)
-			   + strlen(self->credentials[0])
-			   + strlen(self->credentials[1])));
+	char *b = malloc(sizeof(char) *
+			 (strlen(userpass) + strlen(self->credentials[0]) +
+			  strlen(self->credentials[1])));
 
 	sprintf(b, userpass, self->credentials[0], self->credentials[1]);
 
 	if (DEBUG)
-		printf ("do_credentials_login with body : %s\n", b);
+		printf("do_credentials_login with body : %s\n", b);
 
-	p = trest_make_request (THTTP_METHOD_POST, "/auth/login", b);
-	free (b);
+	p = trest_make_request(THTTP_METHOD_POST, "/auth/login", b);
+	free(b);
 
-	r = trest_do_json_request (self, p);
+	r = trest_do_json_request(self, p);
 
 	if (DEBUG)
-		printf ("do_credentials_login code: %d\n", r->code);
+		printf("do_credentials_login code: %d\n", r->code);
 
 	trest_request_free(p);
 	return r;
 }
 
-static trest_auth_status_enum
-do_credentials_login (struct trest *self)
+static trest_auth_status_enum do_credentials_login(struct trest *self)
 {
-	struct trest_response* response =
-	       self->login_handler(self, self->login_data);
+	struct trest_response *response =
+		self->login_handler(self, self->login_data);
 
 	if (response->code == THTTP_STATUS_UNAUTHORIZED) {
 		self->status = TREST_AUTH_STATUS_NOTAUTH;
@@ -186,7 +180,7 @@ do_credentials_login (struct trest *self)
 		self->status = TREST_AUTH_STATUS_ERROR;
 		goto exit;
 	}
-	update_tokens_from_json_response (self, response);
+	update_tokens_from_json_response(self, response);
 	self->status = TREST_AUTH_STATUS_OK;
 
 exit:
@@ -194,15 +188,13 @@ exit:
 	return self->status;
 }
 
-trest_ptr
-trest_new_with_login_handler(const char* host, int port,
-			struct trest_response* (*login_handler) (trest_ptr self, void* data),
-			void *login_data,
-			const char *user_agent,
-			const struct sockaddr *cached_sock)
+trest_ptr trest_new_with_login_handler(
+	const char *host, int port,
+	struct trest_response *(*login_handler)(trest_ptr self, void *data),
+	void *login_data, const char *user_agent,
+	const struct sockaddr *cached_sock)
 {
-	struct trest* client =
-		calloc (sizeof(struct trest), 1);
+	struct trest *client = calloc(sizeof(struct trest), 1);
 
 	client->host = strdup(host);
 	client->port = port;
@@ -218,112 +210,101 @@ trest_new_with_login_handler(const char* host, int port,
 	client->login_handler = login_handler;
 	client->login_data = login_data;
 
-	return (trest_ptr) client;
+	return (trest_ptr)client;
 }
 
-trest_ptr
-trest_new_from_userpass(const char* host, int port,
-			const char *user,
-			const char *pass,
-			const char *user_agent,
-			const struct sockaddr *cached_sock)
+trest_ptr trest_new_from_userpass(const char *host, int port, const char *user,
+				  const char *pass, const char *user_agent,
+				  const struct sockaddr *cached_sock)
 {
-	struct trest* client = trest_new_with_login_handler (
-			host,
-			port,
-			do_credentials_login_userpass,
-			NULL,
-			user_agent,
-			cached_sock);
+	struct trest *client =
+		trest_new_with_login_handler(host, port,
+					     do_credentials_login_userpass,
+					     NULL, user_agent, cached_sock);
 
-	client->credentials = malloc(sizeof(char*) * 3);
+	client->credentials = malloc(sizeof(char *) * 3);
 	client->credentials[0] = strdup(user);
 	client->credentials[1] = strdup(pass);
-	client->credentials[2] = (char*) 0;
+	client->credentials[2] = (char *)0;
 
-	return (trest_ptr) client;
+	return (trest_ptr)client;
 }
 
-trest_ptr
-trest_new_tls_with_login_handler(const char* host, int port,
-			struct trest_response* (*login_handler) (trest_ptr self, void* data),
-		 	void *login_data,
-			const char **cafiles,
-			const char *user_agent,
-			const struct sockaddr *cached_sock)
+trest_ptr trest_new_tls_with_login_handler(
+	const char *host, int port,
+	struct trest_response *(*login_handler)(trest_ptr self, void *data),
+	void *login_data, const char **cafiles, const char *user_agent,
+	const struct sockaddr *cached_sock)
 
 {
-	struct trest* client = (struct trest*)
-		trest_new_with_login_handler(host, port, login_handler, login_data, user_agent, cached_sock);
+	struct trest *client = (struct trest *)trest_new_with_login_handler(
+		host, port, login_handler, login_data, user_agent, cached_sock);
 
 	const char **ci = cafiles;
 	client->is_tls = 1;
 
-	if(ci) {
-		int c=0;
+	if (ci) {
+		int c = 0;
 		while (*ci) {
 			c++;
 			ci++;
 		}
-		client->tls_cafiles = malloc (sizeof(char*) * (c+1));
-		memcpy (client->tls_cafiles, cafiles, sizeof(char*) * (c + 1));
+		client->tls_cafiles = malloc(sizeof(char *) * (c + 1));
+		memcpy(client->tls_cafiles, cafiles, sizeof(char *) * (c + 1));
 	}
 
-	return (trest_ptr) client;
+	return (trest_ptr)client;
 }
 
-
-trest_ptr
-trest_new_tls_from_userpass(const char* host, int port,
-			    const char *user,
-			    const char *pass,
-			    const char **cafiles,
-			    const char *user_agent,
-			    const struct sockaddr *cached_sock)
+trest_ptr trest_new_tls_from_userpass(const char *host, int port,
+				      const char *user, const char *pass,
+				      const char **cafiles,
+				      const char *user_agent,
+				      const struct sockaddr *cached_sock)
 {
-	struct trest* client = (struct trest*)
-		trest_new_from_userpass(host, port, user, pass, user_agent, cached_sock);
+	struct trest *client = (struct trest *)trest_new_from_userpass(
+		host, port, user, pass, user_agent, cached_sock);
 
 	const char **ci = cafiles;
 	client->is_tls = 1;
 
-	if(ci) {
-		int c=0;
+	if (ci) {
+		int c = 0;
 		while (*ci) {
 			c++;
 			ci++;
 		}
-		client->tls_cafiles = malloc (sizeof(char*) * (c+1));
-		memcpy (client->tls_cafiles, cafiles, sizeof(char*) * (c + 1));
+		client->tls_cafiles = malloc(sizeof(char *) * (c + 1));
+		memcpy(client->tls_cafiles, cafiles, sizeof(char *) * (c + 1));
 	}
 
-	return (trest_ptr) client;
+	return (trest_ptr)client;
 }
 
-void
-trest_set_proxy (trest_ptr c, char *host, int port, int tls) {
+void trest_set_proxy(trest_ptr c, char *host, int port, int tls)
+{
 	trest_set_proxy_connect(c, host, port, tls, true);
 }
 
-void
-trest_set_proxy_connect (trest_ptr c, char *host, int port, int tls, int proxyconnect) {
+void trest_set_proxy_connect(trest_ptr c, char *host, int port, int tls,
+			     int proxyconnect)
+{
 	struct trest *client = c;
 
-	client->host_proxy=host;
-	client->port_proxy=port;
-	client->is_tls_proxy=tls;
-	client->proxyconnect=proxyconnect;
+	client->host_proxy = host;
+	client->port_proxy = port;
+	client->is_tls_proxy = tls;
+	client->proxyconnect = proxyconnect;
 }
 
-void
-trest_free (trest_ptr ptr)
+void trest_free(trest_ptr ptr)
 {
-	struct trest* client = (struct trest*) ptr;
+	struct trest *client = (struct trest *)ptr;
 	char **cptr = client->credentials;
 
 	if (cptr) {
-		while(*cptr) {
-			free (*cptr++);
+		while (*cptr) {
+			free(*cptr++);
 		}
 	}
 	if (client->access_token)
@@ -334,14 +315,13 @@ trest_free (trest_ptr ptr)
 		free(client->tls_cafiles);
 	free(client->credentials);
 	free(client->host);
-	free (ptr);
+	free(ptr);
 	return;
 }
 
-void
-trest_request_free (trest_request_ptr ptr)
+void trest_request_free(trest_request_ptr ptr)
 {
-	struct trest_request* req = (struct trest_request*) ptr;
+	struct trest_request *req = (struct trest_request *)ptr;
 
 	if (req->on_free)
 		req->on_free(req);
@@ -349,39 +329,35 @@ trest_request_free (trest_request_ptr ptr)
 	free(req);
 }
 
-void
-trest_response_free (trest_response_ptr ptr)
+void trest_response_free(trest_response_ptr ptr)
 {
 	if (ptr->body)
 		free(ptr->body);
-	if(ptr->json_tokv)
+	if (ptr->json_tokv)
 		free(ptr->json_tokv);
 	free(ptr);
 }
 
 // check auth status if you are just interested in this
-trest_auth_status_enum
-trest_auth_status (trest_ptr ptr)
+trest_auth_status_enum trest_auth_status(trest_ptr ptr)
 {
-	struct trest *self = (struct trest*) ptr;
+	struct trest *self = (struct trest *)ptr;
 	return self->status;
 }
-
 
 // update auth tokens if possible. usually tries refresh_token
 // against the login endpoint and then other credentials
 // if available. usually needs to be called once to get
 // initial auth token, but this behaviour depends on the
 // credential type and backend implementation.
-trest_auth_status_enum
-trest_update_auth (trest_ptr ptr)
+trest_auth_status_enum trest_update_auth(trest_ptr ptr)
 {
-	struct trest *self = (struct trest*) ptr;
+	struct trest *self = (struct trest *)ptr;
 	// if we believe we are authed, use refresh logic...
-	if (trest_auth_status (ptr) == TREST_AUTH_STATUS_OK) {
-		return do_refresh_login (self);
+	if (trest_auth_status(ptr) == TREST_AUTH_STATUS_OK) {
+		return do_refresh_login(self);
 	} else {
-		return do_credentials_login (self);
+		return do_credentials_login(self);
 	}
 
 	return TREST_AUTH_STATUS_UNKNOWN;
@@ -397,14 +373,11 @@ static void trest_free_make_request(struct trest_request *req)
 
 // make a json request; uses Encoding application/json
 // and Accept-Endcoding application/json accordingly
-trest_request_ptr
-trest_make_request (thttp_method_t method,
-		    char *endpoint_path,
-		    char *json_body)
+trest_request_ptr trest_make_request(thttp_method_t method, char *endpoint_path,
+				     char *json_body)
 {
 	// XXX: implement parameter precondition checks
-	struct trest_request* r =
-		calloc (1, sizeof(struct trest_request));
+	struct trest_request *r = calloc(1, sizeof(struct trest_request));
 
 	if (!r)
 		goto no_request;
@@ -424,26 +397,20 @@ no_request:
 //   -- endpoint prefix is determined through a setting that
 //   -- can be tweaked against the _request objects. By
 //   -- default the client uses.
-trest_response_ptr
-trest_do_request (trest_ptr client,
-		  trest_request_ptr request,
-		  trest_cb callback,
-		  void* user_data)
+trest_response_ptr trest_do_request(trest_ptr client, trest_request_ptr request,
+				    trest_cb callback, void *user_data)
 {
 	return NULL;
 }
 
-
-static trest_response_ptr
-__trest_do_json_request (trest_ptr client,
-		       trest_request_ptr request)
+static trest_response_ptr __trest_do_json_request(trest_ptr client,
+						  trest_request_ptr request)
 {
-
 	thttp_response_t *response;
 	thttp_request_t *req;
-	trest_response_t *res = calloc (1, sizeof(trest_response_t));
-	struct trest_request *req_in = (struct trest_request*) request;
-	struct trest *c = (struct trest*) client;
+	trest_response_t *res = calloc(1, sizeof(trest_response_t));
+	struct trest_request *req_in = (struct trest_request *)request;
+	struct trest *c = (struct trest *)client;
 	static char do_login_userpass = 0;
 	char *headers_i = NULL;
 
@@ -453,18 +420,24 @@ __trest_do_json_request (trest_ptr client,
 	if (!c->is_tls) {
 		req = thttp_request_new_0();
 	} else {
-		req = (thttp_request_t*) thttp_request_tls_new_0();
+		req = (thttp_request_t *)thttp_request_tls_new_0();
 	}
 
 	if (!req)
 		goto exit;
 
 	if (c->is_tls) {
-		((thttp_request_tls_t*)req)->crtfiles = c->tls_cafiles;
-		req->baseurl = calloc(1, sizeof(char)*(strlen("https://") + strlen(c->host) + 1 /* : */ + 5 /* port */ + 2 /* 0-delim */));
+		((thttp_request_tls_t *)req)->crtfiles = c->tls_cafiles;
+		req->baseurl = calloc(
+			1, sizeof(char) * (strlen("https://") +
+					   strlen(c->host) + 1 /* : */ +
+					   5 /* port */ + 2 /* 0-delim */));
 		sprintf(req->baseurl, "https://%s:%d", c->host, c->port);
 	} else {
-		req->baseurl = calloc(1, sizeof(char)*(strlen("https://") + strlen(c->host) + 1 /* : */ + 5 /* port */ + 2 /* 0-delim */));
+		req->baseurl = calloc(
+			1, sizeof(char) * (strlen("https://") +
+					   strlen(c->host) + 1 /* : */ +
+					   5 /* port */ + 2 /* 0-delim */));
 		sprintf(req->baseurl, "http://%s:%d", c->host, c->port);
 	}
 
@@ -488,14 +461,15 @@ __trest_do_json_request (trest_ptr client,
 
 	if (c->access_token) {
 		const char *autht = "Authorization: Bearer %s";
-		headers_i = malloc(strlen(autht) + strlen (c->access_token) + 1);
+		headers_i = malloc(strlen(autht) + strlen(c->access_token) + 1);
 		if (headers_i) {
-			char *headers[] = {headers_i, NULL};
+			char *headers[] = { headers_i, NULL };
 
-			sprintf (headers_i, autht, c->access_token);
+			sprintf(headers_i, autht, c->access_token);
 			thttp_add_headers(req, headers, 1);
 			if (DEBUG)
-				printf("Added access_token header: %s\n", headers_i);
+				printf("Added access_token header: %s\n",
+				       headers_i);
 
 			free(headers_i);
 		}
@@ -514,11 +488,11 @@ __trest_do_json_request (trest_ptr client,
 			res->body = response->body;
 			response->body = NULL;
 		}
-		res->json_tokc = jsmnutil_parse_json (res->body, &res->json_tokv, &res->json_toks);
-		if (!res->json_tokc)
-		{
+		res->json_tokc = jsmnutil_parse_json(res->body, &res->json_tokv,
+						     &res->json_toks);
+		if (!res->json_tokc) {
 			// XXX: update auth status of response?
-			printf ("failed to parse_json\n");
+			printf("failed to parse_json\n");
 			trest_response_free(res);
 			thttp_response_free(response);
 			res = 0;
@@ -534,7 +508,9 @@ __trest_do_json_request (trest_ptr client,
 		res->status = TREST_AUTH_STATUS_NOTAUTH;
 
 		if (!do_login_userpass) {
-			thttp_log(LOG_WARN, "401 Unauthorized received. Refreshing credentials...");
+			thttp_log(
+				LOG_WARN,
+				"401 Unauthorized received. Refreshing credentials...");
 			do_login_userpass = 1;
 			do_credentials_login(c);
 		}
@@ -560,14 +536,13 @@ free_req:
 	if (do_login_userpass)
 		do_login_userpass = 0;
 exit:
-	return (trest_response_ptr) res;
+	return (trest_response_ptr)res;
 }
 
-trest_response_ptr
-trest_do_json_request (trest_ptr client,
-		       trest_request_ptr request)
+trest_response_ptr trest_do_json_request(trest_ptr client,
+					 trest_request_ptr request)
 {
-	struct trest *c = (struct trest*) client;
+	struct trest *c = (struct trest *)client;
 	trest_response_ptr res = NULL;
 	int tried = 0;
 
@@ -579,7 +554,7 @@ restart_request:
 		 * to restart this request again.
 		 */
 		if (!tried && res->status == TREST_AUTH_STATUS_NOTAUTH &&
-				c->status == TREST_AUTH_STATUS_OK) {
+		    c->status == TREST_AUTH_STATUS_OK) {
 			trest_response_free(res);
 			res = NULL;
 			tried = 1;
@@ -589,15 +564,14 @@ restart_request:
 	return res;
 }
 
-char*
-trest_get_addr(trest_ptr client)
+char *trest_get_addr(trest_ptr client)
 {
-	struct trest *c = (struct trest*) client;
+	struct trest *c = (struct trest *)client;
 	struct sockaddr *sa = &(c->conn);
 	struct sockaddr_in6 *addr_in6;
 	struct sockaddr_in *addr_in;
-    char *buf = NULL;
-    char ip[INET6_ADDRSTRLEN];
+	char *buf = NULL;
+	char ip[INET6_ADDRSTRLEN];
 	int port;
 
 	if (!c)
@@ -605,25 +579,25 @@ trest_get_addr(trest_ptr client)
 
 	buf = calloc(1, 64);
 
-    switch(c->conn.sa_family) {
-        case AF_INET6:
-			addr_in6 = (struct sockaddr_in6*)sa;
-			inet_ntop(AF_INET6, &(addr_in6->sin6_addr), ip, INET6_ADDRSTRLEN);
-			port = ntohs(addr_in6->sin6_port);
-            break;
-        case AF_INET:
-        default:
-			addr_in = (struct sockaddr_in*)sa;
-			inet_ntop(AF_INET, &(addr_in->sin_addr), ip, INET_ADDRSTRLEN);
-			port = ntohs(addr_in->sin_port);
-            break;
-    }
-    snprintf(buf, 64, "%s:%d", ip, port);
+	switch (c->conn.sa_family) {
+	case AF_INET6:
+		addr_in6 = (struct sockaddr_in6 *)sa;
+		inet_ntop(AF_INET6, &(addr_in6->sin6_addr), ip,
+			  INET6_ADDRSTRLEN);
+		port = ntohs(addr_in6->sin6_port);
+		break;
+	case AF_INET:
+	default:
+		addr_in = (struct sockaddr_in *)sa;
+		inet_ntop(AF_INET, &(addr_in->sin_addr), ip, INET_ADDRSTRLEN);
+		port = ntohs(addr_in->sin_port);
+		break;
+	}
+	snprintf(buf, 64, "%s:%d", ip, port);
 
 out:
-    return buf;
+	return buf;
 }
-
 
 // callback for blob messages. this gets called when
 // new data is available with data pointing to the
@@ -632,6 +606,4 @@ out:
 // Special conditions are treated like the following:
 //  - EOF:  data == 0 && data_len == 0
 //  - ERROR" data == 0 && data_len == ERROR_CODE
-typedef void (*trest_cb) (void *user_data,
-			  unsigned char* data,
-			  size_t data_len);
+typedef void (*trest_cb)(void *user_data, unsigned char *data, size_t data_len);

@@ -34,11 +34,7 @@ typedef struct _systemc_volobject {
 	char *flags;
 } systemc_volobject;
 
-enum {
-	SHARE_NET = 1,
-	SHARE_UTS = 2,
-	SHARE_IPC = 4
-};
+enum { SHARE_NET = 1, SHARE_UTS = 2, SHARE_IPC = 4 };
 
 typedef struct _systemc_platform {
 	char *name;
@@ -51,8 +47,7 @@ typedef struct _systemc_platform {
 	systemc_object **configs;
 } systemc_platform;
 
-typedef struct _systemc_step
-{
+typedef struct _systemc_step {
 	int rev;
 
 	char *trail_id; // trail-id
@@ -66,8 +61,7 @@ typedef struct _systemc_step
 	time_t progress_time;
 } systemc_step;
 
-typedef struct _systemc_state
-{
+typedef struct _systemc_state {
 	int rev;
 
 	char *trail_id; // trail-id
@@ -78,12 +72,11 @@ typedef struct _systemc_state
 	systemc_platform **platformsv;
 } systemc_state;
 
-systemc_state* trail_parse_state (const char *buf, int len);
+systemc_state *trail_parse_state(const char *buf, int len);
 
-systemc_state* trail_parse_state_from_file (const char *filename);
+systemc_state *trail_parse_state_from_file(const char *filename);
 
-void trail_object_free (systemc_object* self);
-void trail_volobject_free (systemc_volobject* self);
-void trail_platform_free (systemc_platform* self);
-void trail_state_free (systemc_state* self);
-
+void trail_object_free(systemc_object *self);
+void trail_volobject_free(systemc_volobject *self);
+void trail_platform_free(systemc_platform *self);
+void trail_state_free(systemc_state *self);
