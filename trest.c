@@ -265,8 +265,10 @@ trest_new_tls_with_login_handler(const char* host, int port,
 			c++;
 			ci++;
 		}
-		client->tls_cafiles = malloc (sizeof(char*) * (c+1));
-		memcpy (client->tls_cafiles, cafiles, sizeof(char*) * (c + 1));
+		client->tls_cafiles = malloc(sizeof(char*) * (c+1));
+		for (int i = 0; i < c; i++)
+			client->tls_cafiles[i] = strdup(cafiles[i]);
+		client->tls_cafiles[c] = NULL;
 	}
 
 	return (trest_ptr) client;
@@ -293,8 +295,10 @@ trest_new_tls_from_userpass(const char* host, int port,
 			c++;
 			ci++;
 		}
-		client->tls_cafiles = malloc (sizeof(char*) * (c+1));
-		memcpy (client->tls_cafiles, cafiles, sizeof(char*) * (c + 1));
+		client->tls_cafiles = malloc(sizeof(char*) * (c+1));
+		for (int i = 0; i < c; i++)
+			client->tls_cafiles[i] = strdup(cafiles[i]);
+		client->tls_cafiles[c] = NULL;
 	}
 
 	return (trest_ptr) client;
@@ -330,8 +334,12 @@ trest_free (trest_ptr ptr)
 		free(client->access_token);
 	if (client->refresh_token)
 		free(client->refresh_token);
-	if (client->tls_cafiles)
+	if (client->tls_cafiles) {
+		char **buf = client->tls_cafiles;
+		while (*buf)
+			free(*buf++);
 		free(client->tls_cafiles);
+	}
 	free(client->credentials);
 	free(client->host);
 	free (ptr);
