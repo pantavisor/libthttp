@@ -103,6 +103,18 @@ typedef struct thttp_request_tls {
 } thttp_request_tls_t;
 
 
+// transport-level failure reason for a request. this is orthogonal to the
+// HTTP status code and is only meaningful when no HTTP response was received
+// (i.e. code == 0). it lets callers tell a connect/read timeout apart from a
+// server that closed the connection without a response (hangup/EOF) and from
+// other/TLS errors.
+typedef enum {
+	THTTP_TRANSPORT_OK = 0, // no transport error (a response was received)
+	THTTP_TRANSPORT_TIMEOUT, // timed out waiting for connect/response
+	THTTP_TRANSPORT_EOF, // peer closed connection without a response
+	THTTP_TRANSPORT_ERROR, // other transport/TLS/connect error
+} thttp_transport_error_t;
+
 typedef struct thttp_response {
 	thttp_method_t method;
 	thttp_proto_t proto;
@@ -110,6 +122,9 @@ typedef struct thttp_response {
 	char **headers;
 	char *body;
 	thttp_status_t code;
+	// thttp_transport_error_t; 0 (THTTP_TRANSPORT_OK) when a response was
+	// received. only set when code == 0.
+	int transport_error;
 } thttp_response_t;
 
 
