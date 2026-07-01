@@ -11,7 +11,7 @@ jobs:
   build:
     env:
       target: libthttp
-      configs: .github/configs/shared-vols.yaml:.github/configs/release/raspberrypi-armv8-scarthgap.yaml
+      configs: kas/build-configs/shared-vols.yaml:kas/build-configs/release/raspberrypi-armv8-scarthgap.yaml
     runs-on: ["self-hosted"]
     container:
       image: ghcr.io/pantacor/kas/kas:next-v7
