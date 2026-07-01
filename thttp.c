@@ -862,18 +862,29 @@ static int
 do_ctx_plain_read(thttp_request_t* req,
 		  struct _req_ctx_plain *ctx_plain,
 		  char *buf,
-		  int len)
+		  int len,
+		  int *reason)
 {
 	int ret = read(ctx_plain->server_fd, buf, len);
-	if (ret < 0)
+	if (ret < 0) {
 		thttp_log(LOG_WARN, "read: %s", strerror(errno));
+		if (reason)
+			*reason = (errno == EAGAIN || errno == EWOULDBLOCK ||
+				   errno == ETIMEDOUT) ?
+					  THTTP_TRANSPORT_TIMEOUT :
+					  THTTP_TRANSPORT_ERROR;
+	} else if (ret == 0 && reason) {
+		// orderly shutdown by the peer with no (more) data == hangup
+		*reason = THTTP_TRANSPORT_EOF;
+	}
 	return ret;
 }
 static int
 do_ctx_tls_read(thttp_request_t* req,
 		struct _req_ctx_tls *ctx,
 		char *buf,
-		int len)
+		int len,
+		int *reason)
 {
 	int ret = -1;
 	int to_read = len;
@@ -887,17 +898,26 @@ do_ctx_tls_read(thttp_request_t* req,
 
 	int pollmask = MBEDTLS_NET_POLL_READ;
 	while (len > 0) {
-		if ( mbedtls_net_poll(&ctx->server_fd, pollmask, 2000)
-				!= pollmask) {
+		// mbedtls_net_poll returns 0 on timeout and a negative value on
+		// error; anything else that is not our pollmask is unexpected.
+		int pret = mbedtls_net_poll(&ctx->server_fd, pollmask, 2000);
+		if (pret != pollmask) {
 			if (DEBUG)
 				mbedtls_printf("poll returned -ve value..\n");
+			if (reason)
+				*reason = (pret == 0) ? THTTP_TRANSPORT_TIMEOUT :
+							THTTP_TRANSPORT_ERROR;
 			break;
 		}
 
 		ret = mbedtls_ssl_read(&ctx->ssl, (unsigned char*)buf , len);
 
-		if (ret == 0 )
+		if (ret == 0 ) {
+			// clean close by the peer == hangup
+			if (reason)
+				*reason = THTTP_TRANSPORT_EOF;
 			break;
+		}
 
 		else if (ret > 0) {
 			len -= ret;
@@ -911,8 +931,13 @@ do_ctx_tls_read(thttp_request_t* req,
 				pollmask = MBEDTLS_NET_POLL_WRITE;
 				continue; // XXX: make proper enum or something for AGAIN
 			}
-			else
+			else {
+				if (reason)
+					*reason = (ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) ?
+							  THTTP_TRANSPORT_EOF :
+							  THTTP_TRANSPORT_ERROR;
 				break;
+			}
 		}
 	}
 	if (DEBUG && VERBOSE)
@@ -928,13 +953,14 @@ do_ctx_read(thttp_request_t* req,
 	    struct _req_ctx_plain *ctx_plain,
 	    struct _req_ctx_tls *ctx_tls,
 	    char *buf,
-	    int len)
+	    int len,
+	    int *reason)
 {
 	if (req->is_tls) {
-		return do_ctx_tls_read(req, ctx_tls, buf, len);
+		return do_ctx_tls_read(req, ctx_tls, buf, len, reason);
 	}
 
-	return do_ctx_plain_read(req, ctx_plain, buf, len);
+	return do_ctx_plain_read(req, ctx_plain, buf, len, reason);
 }
 
 static int
@@ -1007,7 +1033,8 @@ do_ctx_connect (thttp_request_t* req,
 		ret = do_ctx_plain_read(req,
 					ctx_plain,
 					resbuf,
-					1024);
+					1024,
+					NULL);
 		if (ret < 0) {
 			goto exit;
 		}
@@ -1068,6 +1095,10 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	}
 
 	if((ret = do_ctx_connect(req, &ctx_plain, &ctx_tls)) < 0) {
+		// we cannot reliably tell a connect timeout apart from a refused
+		// connection here (is_remote_reachable/do_ctx_connect collapse
+		// both into a negative return), so report a generic error.
+		parser->out->transport_error = THTTP_TRANSPORT_ERROR;
 		goto exit_connect;
 	}
 
@@ -1086,6 +1117,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 	while ((ret = do_ctx_write(req, &ctx_plain, &ctx_tls, reqbuf, len)) <= 0) {
 		if (ret < 0) {
 			mbedtls_printf ("failed\n  ! write returned %d\n\n", ret);
+			parser->out->transport_error = THTTP_TRANSPORT_ERROR;
 			goto exit_write;
 		}
 	}
@@ -1099,6 +1131,7 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 				ret = do_ctx_write(req, &ctx_plain, &ctx_tls, filebuf, bytes);
 				if (ret < 0) {
 					thttp_log(LOG_WARN, "do_ctx_write: %s", strerror(errno));
+					parser->out->transport_error = THTTP_TRANSPORT_ERROR;
 					goto exit_write;
 				}
 			} while (ret <= 0);
@@ -1111,12 +1144,18 @@ thttp_request_do_abstract (thttp_request_t* req, struct http_response_parser *pa
 
 	while (needmore) {
 		char* data = resbuf;
+		int reason = THTTP_TRANSPORT_OK;
 		len = sizeof(resbuf);
-		ret = do_ctx_read(req, &ctx_plain, &ctx_tls, resbuf, len);
+		ret = do_ctx_read(req, &ctx_plain, &ctx_tls, resbuf, len, &reason);
 
 		if(ret <= 0) {
 			if (DEBUG)
 				mbedtls_printf ("\n---FINISHED or FAILED: ssl_read returned %d\n\n", ret);
+			// only surface a transport error when we never got an HTTP
+			// response; once code is set a subsequent EOF/close is just a
+			// normal end-of-connection, not a failure.
+			if (parser->out->code == 0)
+				parser->out->transport_error = reason;
 			break;
 		}
 

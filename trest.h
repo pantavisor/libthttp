@@ -42,6 +42,9 @@ typedef struct trest_response {
 	char *body;
 	char **headers;
 	thttp_status_t code;
+	// thttp_transport_error_t propagated from the underlying thttp_response.
+	// only meaningful when code == 0 (no HTTP response received).
+	int transport_error;
 
 	jsmntok_t *json_tokv;
 	int json_toks; // size of buffer

@@ -536,6 +536,7 @@ __trest_do_json_request (trest_ptr client,
 	// XXX: strvdup this one...
 	res->headers = response->headers;
 	res->code = response->code;
+	res->transport_error = response->transport_error;
 
 	switch (response->code) {
 	case THTTP_STATUS_UNAUTHORIZED:
