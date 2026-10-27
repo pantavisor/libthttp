@@ -87,7 +87,7 @@ update_tokens_from_json_response (struct trest *self,
 {
 	// if we got a response parse it
 	jsmntok_t *jv;
-	int c,i,t=-1;
+	int c,i,n;
 	char *body;
 
 	jv = response->json_tokv;
@@ -97,29 +97,25 @@ update_tokens_from_json_response (struct trest *self,
 	if (DEBUG)
 		printf ("update_tokens_from_json_response: %s\n", body);
 
-	for (i=0; i<c && t != 0; i++) {
-		int n = jv[i].end - jv[i].start;
-		char *token = malloc(n+1);
-		strncpy(token, body + jv[i].start, n);
-		token[n]=0;
+	for (i=0; i<c-1; i++) {
+		n = jv[i].end - jv[i].start;
 
-		if (jv[i].type == JSMN_STRING
-		    && !strncmp(body + jv[i].start, "token", 5)) {
-			t=1;
-		} else if (t==1 && jv[i].type == JSMN_STRING) {
-			token[n] = 0;
-			strncpy(token, body + jv[i].start, n);
-			if (self->access_token)
-				free(self->access_token);
-			self->access_token = strdup(token);
+		// only the value of the "token" key: other keys may follow it
+		if (jv[i].type != JSMN_STRING || jv[i].size != 1 || n != 5
+		    || strncmp(body + jv[i].start, "token", 5)
+		    || jv[i+1].type != JSMN_STRING)
+			continue;
 
-			if (self->refresh_token)
-				free(self->refresh_token);
-			self->refresh_token = strdup (token);
-		} else if (t==1) {
-			t=0;
-		}
-		free(token);
+		n = jv[i+1].end - jv[i+1].start;
+
+		if (self->access_token)
+			free(self->access_token);
+		self->access_token = strndup(body + jv[i+1].start, n);
+
+		if (self->refresh_token)
+			free(self->refresh_token);
+		self->refresh_token = strndup(body + jv[i+1].start, n);
+		break;
 	}
 	if (DEBUG && self->access_token)
 		printf("New access token: %s\n", self->access_token);
