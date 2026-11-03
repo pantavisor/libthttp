@@ -62,6 +62,7 @@
 #include <signal.h>
 
 #include "thttp.h"
+#include "thttp-denylist.h"
 #include "tinyhttp/http.h"
 
 #define BUF_BLOCKSIZE 8192
@@ -362,6 +363,7 @@ struct _req_ctx_tls {
 	mbedtls_ssl_context ssl;
 	mbedtls_ssl_config conf;
 	mbedtls_x509_crt cacert;
+	thttp_denylist_t *denylist;
 };
 
 static int is_remote_reachable(int sockfd, struct sockaddr *rp, socklen_t len)
@@ -563,6 +565,7 @@ do_ctx_connect_tls (int fd,
 	mbedtls_ssl_init(&ctx->ssl);
 	mbedtls_ssl_config_init(&ctx->conf);
 	mbedtls_x509_crt_init(&ctx->cacert);
+	ctx->denylist = NULL;
 	mbedtls_ctr_drbg_init(&ctx->ctr_drbg);
 
 	if (VERBOSE) {
@@ -671,6 +674,8 @@ do_ctx_connect_tls (int fd,
 	mbedtls_ssl_conf_authmode( &ctx->conf, MBEDTLS_SSL_VERIFY_REQUIRED );
 #endif
 	mbedtls_ssl_conf_ca_chain( &ctx->conf, &ctx->cacert, NULL );
+	ctx->denylist = thttp_denylist_load(tls_req->denylistfile, NULL);
+	thttp_denylist_install(&ctx->conf, ctx->denylist);
 	mbedtls_ssl_conf_rng( &ctx->conf, mbedtls_ctr_drbg_random, &ctx->ctr_drbg );
 	mbedtls_ssl_conf_dbg( &ctx->conf, my_debug, stdout );
 
@@ -976,6 +981,8 @@ do_ctx_tls_close (thttp_request_t* req,
 {
 	mbedtls_net_free( &ctx->server_fd );
 	mbedtls_x509_crt_free( &ctx->cacert );
+	thttp_denylist_free( ctx->denylist );
+	ctx->denylist = NULL;
 	mbedtls_ssl_free( &ctx->ssl );
 	mbedtls_ssl_config_free( &ctx->conf );
 	mbedtls_ctr_drbg_free( &ctx->ctr_drbg );

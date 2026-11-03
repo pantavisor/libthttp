@@ -65,6 +65,7 @@ struct trest {
 	int proxyconnect;
 
 	char **tls_cafiles;
+	char *tls_denylist;
 	struct sockaddr conn;
 
 	// we allow third party handlers for login to be implemented
@@ -305,6 +306,15 @@ trest_new_tls_from_userpass(const char* host, int port,
 }
 
 void
+trest_set_denylist (trest_ptr c, const char *path)
+{
+	struct trest *client = c;
+
+	free(client->tls_denylist);
+	client->tls_denylist = path ? strdup(path) : NULL;
+}
+
+void
 trest_set_proxy (trest_ptr c, char *host, int port, int tls) {
 	trest_set_proxy_connect(c, host, port, tls, true);
 }
@@ -340,6 +350,7 @@ trest_free (trest_ptr ptr)
 			free(*buf++);
 		free(client->tls_cafiles);
 	}
+	free(client->tls_denylist);
 	free(client->credentials);
 	free(client->host);
 	free (ptr);
@@ -469,6 +480,7 @@ __trest_do_json_request (trest_ptr client,
 
 	if (c->is_tls) {
 		((thttp_request_tls_t*)req)->crtfiles = c->tls_cafiles;
+		((thttp_request_tls_t*)req)->denylistfile = c->tls_denylist;
 		req->baseurl = calloc(1, sizeof(char)*(strlen("https://") + strlen(c->host) + 1 /* : */ + 5 /* port */ + 2 /* 0-delim */));
 		sprintf(req->baseurl, "https://%s:%d", c->host, c->port);
 	} else {
