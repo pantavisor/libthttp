@@ -95,6 +95,10 @@ trest_new_tls_with_login_handler(const char* host, int port,
 			const char *user_agent,
 			const struct sockaddr *cached_sock);
 
+// set the path of a certificate denylist for TLS requests of this client (see
+// thttp-denylist.h). NULL clears it. A missing file means no denylist.
+void
+trest_set_denylist(trest_ptr c, const char *path);
 void
 trest_set_proxy(trest_ptr c, char *host, int port, int tls);
 void
