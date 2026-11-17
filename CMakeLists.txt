@@ -19,6 +19,7 @@ mark_as_advanced(MBEDTLS_INCLUDE_DIRS MBEDTLS_LIBRARY MBEDX509_LIBRARY MBEDCRYPT
 include_directories(${MBEDTLS_INCLUDE_DIR})
 
 add_library(thttp STATIC  thttp.c
+                             thttp-denylist.c
                              tinyhttp/chunk.c
                              tinyhttp/header.c
                              tinyhttp/http.c
@@ -31,6 +32,7 @@ install(TARGETS thttp
         LIBRARY DESTINATION lib)
 
 install(FILES thttp.h
+              thttp-denylist.h
               thttp-enums.h
               jsmn/jsmnutil.h
               jsmn/jsmn.h

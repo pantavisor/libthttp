@@ -100,6 +100,10 @@ typedef struct thttp_request_tls {
 	// -- this guy is untyped to avoid dependencies to clients on mbedtls headers
 	// and
 	void *ciphersuites;
+
+	// optional path of a certificate denylist (see thttp-denylist.h).
+	// NULL or a missing file means no denylist.
+	const char *denylistfile;
 } thttp_request_tls_t;
 
 
